@@ -8,7 +8,7 @@
 
 //------------------------------------------------------------------------------
 // Funções auxiliares
-int queue_is_empty (queue_t *queue) {
+int queue_is_empty(queue_t *queue) {
     return (queue == NULL);
 }
 
@@ -84,43 +84,39 @@ int queue_append (queue_t **queue, queue_t *elem) {
         return -2;
     }
 
-    // percorre a fila verificando se o elemento ja faz parte dela
+    // verifica se o elemento ja esta na fila
     queue_t *aux = (*queue);
-    while (!queue_is_empty(*queue) && (aux->next != (*queue))) {
-        if (aux == elem) {
-            fprintf(stderr, "Error: queue append - the element is already in the queue.\n");
-            return -3;
-        }
-        aux = aux->next;
-    }
-    // verificando ultimo elemento
-    if (aux == elem) {
-        fprintf(stderr, "Error: queue append - the element is already in the queue.\n");
-        return -3;
+    if (!queue_is_empty(*queue)) {
+        do {
+            if (aux == elem) {
+                fprintf(stderr, "Error: queue append - the element is already in the queue.\n");
+                return -3;
+            }
+            aux = aux->next;
+        } while (aux != (*queue));
     }
 
-    // verificar se está em algum outra fila
+    // verificar se está em alguma outra fila
     if (elem->prev || elem->next) {
         fprintf(stderr, "Error: queue append - the element is in another queue.\n");
         return -4;
     }
 
-    // inserindo no inicio da fila vazia
     if (queue_is_empty(*queue)) {
+        // inserindo no inicio da fila vazia
         elem->next = elem;
         elem->prev = elem;
         (*queue) = elem;
-        return 0;
     }
-
-    // inserindo no final da fila 
-    queue_t *prev = (*queue)->prev;
-    queue_t *next = (*queue);
-    prev->next = elem;
-    next->prev = elem;
-    elem->next = next;
-    elem->prev = prev;
-    
+    else {
+        // inserindo no final da fila 
+        queue_t *prev = (*queue)->prev;
+        queue_t *next = (*queue);
+        prev->next = elem;
+        next->prev = elem;
+        elem->next = next;
+        elem->prev = prev;
+    }
     return 0;
 }
 
@@ -138,7 +134,7 @@ int queue_remove (queue_t **queue, queue_t *elem) {
         fprintf(stderr, "Error: queue remove - the queue doesn't exist.\n");
         return -1;
     }
-    if ((*queue) == NULL) {
+    if (queue_size(*queue) == 0) {
         fprintf(stderr, "Error: queue remove - the queue is empty.\n");
         return -2;
     }
@@ -165,20 +161,15 @@ int queue_remove (queue_t **queue, queue_t *elem) {
 
     // removendo do meio da fila
     // precorre a fila procurando pelo elemento a remover
-    queue_t *aux = (*queue);
-    while (aux->next != (*queue)) {
+    queue_t *aux = (*queue)->next;
+    while (aux != (*queue)) {
         if (aux == elem) {
             queue_remove_elem(elem);
             return 0;
         }
         aux = aux->next;
     }
-    // verificando o ultimo elemento
-    if (aux == elem) {
-        queue_remove_elem(elem);
-        return 0;
-    }
-    // se não encontrou o elemento, não esta na fila
+    // se não encontrou o elemento na fila
     fprintf(stderr, "Error: queue remove - the element is not in the queue.\n");
     return -4;
 }
