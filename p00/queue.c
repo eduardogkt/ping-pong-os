@@ -1,9 +1,12 @@
 #include "queue.h"
 #include <stdio.h>
 
-#define ERROR_APPEND_QUEUE_DOESNT_EXIST -1
-#define ERROR_APPEND_ELEM_DOESNT_EXIST -2
-#define ERROR_APPEND_ANOTHER_QUEUE -3
+#define ERROR_QUEUE_DOESNT_EXIST -1
+#define ERROR_ELEM_DOESNT_EXIST -2
+#define ERROR_ELEM_ALREADY_IN_QUEUE -3
+#define ERROR_ELEM_IN_ANOTHER_QUEUE -4
+#define ERROR_ELEM_NOT_IN_QUEUE -5
+#define ERROR_EMPTY_QUEUE -6
 
 
 //------------------------------------------------------------------------------
@@ -77,11 +80,11 @@ void queue_print (char *name, queue_t *queue, void print_elem (void*) ) {
 int queue_append (queue_t **queue, queue_t *elem) {
     if (queue == NULL) {
         fprintf(stderr, "Error: queue append - the queue doesn't exist.\n");
-        return -1;
+        return ERROR_QUEUE_DOESNT_EXIST;
     }
     if (elem == NULL) {
         fprintf(stderr, "Error: queue append - the element doesn't exist.\n");
-        return -2;
+        return ERROR_ELEM_DOESNT_EXIST;
     }
 
     // verifica se o elemento ja esta na fila
@@ -90,7 +93,7 @@ int queue_append (queue_t **queue, queue_t *elem) {
         do {
             if (aux == elem) {
                 fprintf(stderr, "Error: queue append - the element is already in the queue.\n");
-                return -3;
+                return ERROR_ELEM_ALREADY_IN_QUEUE;
             }
             aux = aux->next;
         } while (aux != (*queue));
@@ -99,7 +102,7 @@ int queue_append (queue_t **queue, queue_t *elem) {
     // verificar se está em alguma outra fila
     if (elem->prev || elem->next) {
         fprintf(stderr, "Error: queue append - the element is in another queue.\n");
-        return -4;
+        return ERROR_ELEM_IN_ANOTHER_QUEUE;
     }
 
     if (queue_is_empty(*queue)) {
@@ -132,15 +135,15 @@ int queue_append (queue_t **queue, queue_t *elem) {
 int queue_remove (queue_t **queue, queue_t *elem) {
     if (queue == NULL) {
         fprintf(stderr, "Error: queue remove - the queue doesn't exist.\n");
-        return -1;
+        return ERROR_QUEUE_DOESNT_EXIST;
     }
     if (queue_size(*queue) == 0) {
         fprintf(stderr, "Error: queue remove - the queue is empty.\n");
-        return -2;
+        return ERROR_EMPTY_QUEUE;
     }
     if (elem == NULL) {
         fprintf(stderr, "Error: queue remove - the element doesn't exist.\n");
-        return -3;
+        return ERROR_ELEM_DOESNT_EXIST;
     }
 
     // removendo do inicio da fila
@@ -171,5 +174,5 @@ int queue_remove (queue_t **queue, queue_t *elem) {
     }
     // se não encontrou o elemento na fila
     fprintf(stderr, "Error: queue remove - the element is not in the queue.\n");
-    return -4;
+    return ERROR_ELEM_NOT_IN_QUEUE;
 }
