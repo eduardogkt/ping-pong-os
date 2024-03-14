@@ -63,7 +63,7 @@ void queue_print (char *name, queue_t *queue, void print_elem (void*) ) {
         printf(" ");
         aux = aux->next;
     }
-    // printing last element
+    // imprimindo ultimo elemento
     print_elem((void *) aux);
     
     printf("]\n");
