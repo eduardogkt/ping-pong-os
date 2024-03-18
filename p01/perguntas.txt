@@ -1,0 +1,97 @@
+
+1. Explique o objetivo e os parâmetros de cada uma das quatro funções acima.
+  getcontext(&a) : armazena as informações de contexto da tarefa atual em a, que 
+  é uma estrutura para armazenas as infos de contexto.
+  
+  setcontext(&a) : restaura o contexto a ser executado com as informações de contexto
+  presentes na estrutura de contexto a.
+  
+  swapcontext(&a,&b) : realiza a troca de contexto de a para b, ou seja, salva as infos de contexto atuais em a
+  e restaura as infos de contexto de b, que será a tarefa a ser executada.
+  
+  makecontext(&a, …) : faz com que o código de execução de a seja a função informada como segundo parâmetro; o código
+  da função será executado quando houver um setcontext() ou swapcontext() para a tarefa representada pela estrutura de a.
+
+2. Explique o significado dos campos da estrutura ucontext_t que foram utilizados no código.
+  O código precisa popular as estruturas com as informações de contexto relevante
+  ContextPing.uc_stack.ss_sp se refere ao stack ponter da tarefa
+  ContextPing.uc_stack.ss_size se refere ao tamanho da pilha da tarefa
+  ContextPing.uc_stack.ss_flags se refera as configurações de flags
+
+3. Explique cada linha do código de contexts.c que chame uma dessas funções ou que manipule estruturas do tipo ucontext_t.
+  a função main começa criando um espaço para a pilha e populando as estruturas de contexto de cada uma das duas tarefas.
+  nesta etapa é utilizada a função makecontext() para indicar o que deverá se executada por cada tarefa.
+  após inicializar os campos das estrutaras de contexto, o programa chama a função swapcontext(&ContextMain, &ContextPing) que
+  salva o contexto da main na primeira estrutura passada como parâmetro e coloca em execução o código indicado pelo contexto na
+  estrutura ContextPing. com isso, o fluxo é desviado para a função BodyPing. esta função executa um loop, no qual, em cada iteração,
+  imprime "Ping" e faz uma troca de contexto para Pong. Pong, por sua vez, também executa um loop no qual imprime "Pong", e troca de
+  contexto novamente para Ping. esta troca de contexto faz com que as funções seja executadas de forma "entrelaçada", uma iteração
+  de cada função por vez. as trocas continuam até Ping terminar de executar sua função. quando isso occore, o contexto é trocado para
+  a main (ao invés de Pong) e a função swapcontext(&ContextMain, &ContextPong) é chamada, trocando para o contexto Pong, que termina
+  sua execução e, assim como Ping, troca o contexto novemante para main, que termina a execução do programa.
+
+4. Para visualizar melhor as trocas de contexto, desenhe o diagrama de tempo dessa execução.
+
+.                          main               
+.                           -
+.                           |
+.       print(main: inicio) *
+.                           |
+.          getcontext(Ping) *
+.                           |
+.         makecontext(PIng) *
+.                           |
+.                           |
+.          getcontext(Pong) *
+.                           |
+.         makecontext(Pong) *
+.                           |                          Ping
+.   swapcontext(main, Ping) * ------------------------> -
+.                           .                           |
+.                           .       print(Ping: inicio) *
+.                           .                           |                          Pong
+.                           .   swapcontext(Ping, Pong) * ------------------------> -
+.                           .                           .                           |
+.                           .                           .                           * print(Pong: inicio)
+.                           .                           .                           |
+.                           .                           . <------------------------ * swapcontext(Pong, Ping)
+.                           .                           |                           .
+.                           .                           |                           .
+.                           .                           |                           .
+.                           .   swapcontext(Ping, Pong) * ------------------------> .
+.                           .                           .                           |
+.                           .                           .                           |
+.                           .                           .                           |
+.                           .                           . <------------------------ * swapcontext(Pong, Ping)
+.                           .                           |                           .
+.                           .                           |                           .
+.                           .                           |                           .
+.                           .   swapcontext(Ping, Pong) * ------------------------> .
+.                           .                           .                           |
+.                           .                           .                           |
+.                           .                           .                           |
+.                           .                           . <------------------------ * swapcontext(Pong, Ping)
+.                           .                           |                           .
+.                           .                           |                           .
+.                           .                           |                           .
+.                           .   swapcontext(Ping, Pong) * ------------------------> .
+.                           .                           .                           |
+.                           .                           .                           |
+.                           .                           .                           |
+.                           .                           . <------------------------ * swapcontext(Pong, Ping) 
+.                           .                           |                           .
+.                           .          print(Ping: fim) *                           .
+.                           .                           |                           .
+.                           .                           |                           .
+.                           . <------------------------ * swapcontext(Ping, main)   .
+.                           |                           -                           .
+.                           |                                                       .
+.                           |                                                       .
+.   swapcontext(main, Pong) * ----------------------------------------------------> . 
+.                           .                                                       |
+.                           .                                                       * print(Pong: fim)
+.                           .                                                       |
+.                           . <---------------------------------------------------- * swapcontext(Pong, main)
+.                           |                                                       -
+.          print(fim: main) *
+.                           -
