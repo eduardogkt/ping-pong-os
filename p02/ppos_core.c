@@ -25,7 +25,7 @@ void ppos_init () {
     curr_task = &main_task;
     
     #ifdef DEBUG
-    printf("initializing:\n");
+    printf("ppos_init:\n");
     printf("  main task %d (%p)\n", main_task.id, &main_task);
     printf("  curr task %d (%p)\n", curr_task->id, curr_task);
     #endif
@@ -72,8 +72,7 @@ int task_init (task_t *task, void (*start_func)(void *), void *arg) {
     task->status = 0;
     
     #ifdef DEBUG
-    printf("task %d initialized (%p) (%p)\n", 
-            task->id, task, &(task->context));
+    printf("task_init: task %d initialized\n", task->id);
     #endif
 
     return task->id;
@@ -87,26 +86,25 @@ int task_id () {
 // Termina a tarefa corrente com um status de encerramento
 void task_exit (int exit_code) {
     #ifdef DEBUG
-    printf("exiting task %d (%p)\n", 
-            curr_task->id, &(curr_task->context));
+    printf("task_exit: exiting task %d\n", curr_task->id);
     #endif
 
     // troca de contexto para main
-    task_switch(&main_task);
+    if (curr_task->id != 0)
+        task_switch(&main_task);
 }
 
 // alterna a execução para a tarefa indicada
 int task_switch (task_t *task) {
-    #ifdef DEBUG
-    printf("switching from task %d (%p) to task %d (%p)\n", 
-            curr_task->id, curr_task, 
-            task->id, task);
-    #endif
-
     if (task == NULL) {
         fprintf(stderr, "Error: task switck - null task.\n");
         return PPOS_ERROR_TASK_SWITCH_NULL_TASK;
     }
+
+    #ifdef DEBUG
+    printf("task_switch: switching context %d -> %d\n", 
+            curr_task->id, task->id);
+    #endif
 
     task_t *src = curr_task;
     task_t *dest = task;
