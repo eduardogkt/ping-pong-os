@@ -11,7 +11,7 @@ int user_tasks_count = 0;   // contador das tarefas restantes
 task_t *curr_task;          // ponteiro para tarefa corrente
 task_t main_task;           // tarefa main 
 task_t dispatcher_task;     // tafera de dispatcher
-task_t *task_ready_queue;   // fila de tarefas prontas
+task_t *ready_queue;        // fila de tarefas prontas
 
 
 // funções gerais ==============================================================
@@ -21,12 +21,10 @@ void dispatcher() {
 
 }
 
-
 // implementação da tarefa scheduler
 void scheduler() {
 
 }
-
 
 // funções gerais ==============================================================
 
