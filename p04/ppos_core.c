@@ -15,6 +15,7 @@ task_t *ready_queue;        // fila de tarefas prontas
 
 // =============================================================================
 
+// imprime elemento com id inteiro
 void print_elem (void *ptr) {
     task_t *elem = ptr;
 
@@ -26,23 +27,59 @@ void print_elem (void *ptr) {
     elem->next ? printf ("%d", elem->next->id) : printf ("*") ;
 }
 
+// retorna a tarefa com maior prioridade da fila de prontos
+task_t *get_next_task() {
+    // fila vazia
+    if (ready_queue == NULL) {
+        return NULL;
+    }
+
+    task_t *aux = ready_queue;
+    task_t *chosen_task = aux;
+    do {
+        // pega a tarefa com maior prioridade
+        if (aux->prio_d <= chosen_task->prio_d) {
+            chosen_task = aux;
+        }
+        aux = aux->next;
+    } while (aux != ready_queue);
+
+    #ifdef DEBUG
+    printf("PPOS: sheduler - highest prio: %d\n", chosen_task->prio_d);
+    printf("PPOS: sheduler - chosen task: %d\n", chosen_task->id);
+    #endif
+    
+    return chosen_task;
+}
+
 // =============================================================================
 
 // implementação da tarefa scheduler
 task_t *scheduler() {
+    // procura pela tarefa com maior prioridade na fila
+    task_t *chosen_task = get_next_task();
 
-    // elemento a ser removido (primeiro da fila)
-    task_t *elem = ready_queue;
+    // resetando a prioridade dinamica da tarefa escolhida
+    chosen_task->prio_d = chosen_task->prio_e;
 
-    // retirando o elemento escolhido da fila
-    queue_remove((queue_t **) &ready_queue, (queue_t *) elem);
+    // retirando a tarefa com maior prioridade da fila
+    queue_remove((queue_t **) &ready_queue, (queue_t *) chosen_task);
 
-    return elem;
+    // atualizando a prioridade das tarefas nao escolhidas - aging
+    task_t *aux = ready_queue;
+    if (ready_queue != NULL) {
+        do {
+            aux->prio_d += PPOS_SCHED_AGING;
+            aux = aux->next;
+        } while (aux != ready_queue);
+    }
+
+    return chosen_task;
 }
 
 // implementação da tarefa dispatcher
 void dispatcher() {
-    // retira o dispatcher da fila de prontas, para evitar que ele ative a si próprio
+    // retira o dispatcher da fila de prontas, para evitar que ele ative a si mesmo
     queue_remove((queue_t **) &ready_queue, (queue_t *) &dispatcher_task);
     
     // enquanto houverem tarefas do usuário
@@ -146,6 +183,7 @@ int task_init (task_t *task, void (*start_func)(void *), void *arg) {
     task->next = NULL;
     task->prev = NULL;
     task->status = PPOS_STATUS_NEW;
+    task_setprio(task, 0);          // prioridade padrao 0
 
     // adicionando a tarefa a fila de prontos
     queue_append((queue_t **) &ready_queue, (queue_t *) task);
@@ -224,12 +262,24 @@ void task_yield () {
 
 // define a prioridade estática de uma tarefa (ou a tarefa atual)
 void task_setprio (task_t *task, int prio) {
+    
+    // ajusta prioridae caso esteja fora de [-20, 20]
+    prio = (prio < -20) ? -20 : (prio > 20) ? 20 : prio;
 
+    // se task nao for informada atribui a prioridade a tarefa atual
+    if (task == NULL) {
+        curr_task->prio_e = prio;
+        curr_task->prio_d = prio;
+    } 
+    else {
+        task->prio_e = prio;
+        task->prio_d = prio;
+    }
 }
 
 // retorna a prioridade estática de uma tarefa (ou a tarefa atual)
 int task_getprio (task_t *task) {
-    return 0;
+    return (task == NULL) ? curr_task->prio_e : task->prio_e;
 }
 
 //==============================================================================

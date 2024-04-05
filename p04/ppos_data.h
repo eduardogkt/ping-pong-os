@@ -26,6 +26,9 @@
 #define PPOS_ERROR_SWITCH_NULL_TASK -1
 #define PPOS_ERROR_SWITCH_SWAP_CONTEXT -2
 
+// escalonamento
+#define PPOS_SCHED_AGING -1
+
 #define STACKSIZE 64*1024
 
 // Estrutura que define um Task Control Block (TCB)
@@ -35,7 +38,7 @@ typedef struct task_t
   int id ;			                	// identificador da tarefa
   ucontext_t context ;		       	// contexto armazenado da tarefa
   short status ;		            	// pronta, rodando, suspensa, ...
-  // ... (outros campos serão adicionados mais tarde)
+  short prio_e, prio_d;           // prioridade estatica
 } task_t ;
 
 // estrutura que define um semáforo

@@ -1,17 +1,17 @@
 CC      = gcc
 C_FLAGS = -Wall -std=c99 -g
-TEST    = pingpong-dispatcher
+EXE    = pingpong-scheduler
 
-all: $(TEST)
+all: $(EXE)
 
 debug: C_FLAGS += -DDEBUG
 debug: all
 
-pingpong-dispatcher: pingpong-dispatcher.c ppos_core.c queue.c
-	$(CC) $(C_FLAGS) ppos_core.c queue.c pingpong-dispatcher.c -o pingpong-dispatcher
+$(EXE): $(EXE).c ppos_core.c queue.c
+	$(CC) $(C_FLAGS) ppos_core.c queue.c  $(EXE).c -o $(EXE)
 
 purge:
-	rm $(TEST)
+	rm $(EXE)
 
 test: test.c ppos_core.c
 	$(CC) $(C_FLAGS) ppos_core.c test.c -o test
