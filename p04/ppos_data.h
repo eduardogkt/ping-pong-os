@@ -27,7 +27,7 @@
 #define PPOS_ERROR_SWITCH_SWAP_CONTEXT -2
 
 // escalonamento
-#define PPOS_SCHED_AGING -1
+#define PPOS_SCHED_AGING (-1)
 
 #define STACKSIZE 64*1024
 

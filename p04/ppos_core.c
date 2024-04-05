@@ -52,8 +52,6 @@ task_t *get_next_task() {
     return chosen_task;
 }
 
-// =============================================================================
-
 // implementação da tarefa scheduler
 task_t *scheduler() {
     // procura pela tarefa com maior prioridade na fila
@@ -70,6 +68,8 @@ task_t *scheduler() {
     if (ready_queue != NULL) {
         do {
             aux->prio_d += PPOS_SCHED_AGING;
+            aux->prio_d = (aux->prio_d < -20) ? -20 : aux->prio_d;
+
             aux = aux->next;
         } while (aux != ready_queue);
     }
