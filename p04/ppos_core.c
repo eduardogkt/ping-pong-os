@@ -35,7 +35,7 @@ task_t *get_next_task() {
     }
 
     task_t *aux = ready_queue;
-    task_t *chosen_task = aux;
+    task_t *chosen_task = ready_queue;
     do {
         // pega a tarefa com maior prioridade
         if (aux->prio_d <= chosen_task->prio_d) {
@@ -63,11 +63,13 @@ task_t *scheduler() {
     // retirando a tarefa com maior prioridade da fila
     queue_remove((queue_t **) &ready_queue, (queue_t *) chosen_task);
 
-    // atualizando a prioridade das tarefas nao escolhidas - aging
+    // atualizando a prioridade das tarefas nao escolhidas
     task_t *aux = ready_queue;
     if (ready_queue != NULL) {
         do {
             aux->prio_d += PPOS_SCHED_AGING;
+
+            // ajustando caso prioridade passe do limite de -20
             aux->prio_d = (aux->prio_d < -20) ? -20 : aux->prio_d;
 
             aux = aux->next;
