@@ -131,6 +131,7 @@ void ppos_init () {
     main_task.next = NULL;
     main_task.prev = NULL;
     main_task.status = PPOS_STATUS_RUNNING;
+    task_setprio(&(main_task), 0);
 
     // colocando main como tarefa corrente
     curr_task = &main_task;
