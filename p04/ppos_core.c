@@ -245,7 +245,7 @@ int task_switch (task_t *task) {
     curr_task = dest;
     
     if (swapcontext(&(src->context), &(dest->context)) < 0) {
-        fprintf(stderr, "Error: task switch - contex swap failed.\n");
+        fprintf(stderr, "Error: task switch - context swap failed.\n");
         return PPOS_ERROR_SWITCH_SWAP_CONTEXT;
     }
     return 0;
