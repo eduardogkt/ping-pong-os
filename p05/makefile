@@ -1,6 +1,6 @@
 CC      = gcc
 C_FLAGS = -Wall -g
-EXE     = pingpong-scheduler
+EXE     = pingpong-preempcao
 DP      = ppos_core.c queue.c
 
 all: $(EXE)

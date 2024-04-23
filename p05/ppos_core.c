@@ -46,7 +46,17 @@ task_t *get_next_task() {
     do {
         // pega a tarefa com maior prioridade
         if (aux->prio_d <= chosen_task->prio_d) {
-            chosen_task = aux;
+            if (aux->prio_d == chosen_task->prio_d) {
+                if (aux->prio_e < chosen_task->prio_e) {
+                    chosen_task = aux;
+                }
+                // se aux.prio_e == chosen_task.prio_e escolhe tarefa mais 
+                // velha, ou seja, a tarefa em chosen_task 
+            } 
+            // aux.prio_d < chosen_task.prio_d
+            else {
+                chosen_task = aux;
+            }
         }
         aux = aux->next;
     } while (aux != ready_queue);
@@ -126,7 +136,19 @@ void dispatcher() {
 }
 
 void tick_handler() {
-    printf("ola\n");
+    if (curr_task == NULL) {
+        return;
+    }
+    if (curr_task->type == PPOS_USER_TASK) {
+        curr_task->counter--;
+        if (curr_task->counter == 0) {
+            // retorna para o dispatcher e recoloca a tarefa na fila de prontas
+            curr_task->counter = PPOS_QUANTUM;
+            curr_task->status = PPOS_STATUS_READY;
+            dispatcher_task.status = PPOS_STATUS_RUNNING;
+            task_switch(&dispatcher_task);
+        }
+    }
 }
 
 void timer_init() {
@@ -135,17 +157,17 @@ void timer_init() {
     sigemptyset (&action.sa_mask);
     action.sa_flags = 0;
 
-    int status = sigaction(SIGINT, &action, 0); 
+    int status = sigaction(SIGALRM, &action, 0); 
     if (status < 0) {
         fprintf(stderr, "Error: task init - tick handler init failed.\n");
         exit (1) ;
     }
 
     // inicializando o temporizador
-    timer.it_value.tv_usec = 0;     // primeiro disparo, em micro-segundos
-    timer.it_value.tv_sec  = 5;     // primeiro disparo, em segundos
-    timer.it_interval.tv_usec = 0;  // disparos subsequentes, em micro-segundos
-    timer.it_interval.tv_sec  = 2;  // disparos subsequentes, em segundos
+    timer.it_value.tv_usec = 1000;     // primeiro disparo, em micro-segundos
+    timer.it_value.tv_sec  = 0;        // primeiro disparo, em segundos
+    timer.it_interval.tv_usec = 1000;  // disparos subsequentes, em micro-segundos
+    timer.it_interval.tv_sec  = 0;     // disparos subsequentes, em segundos
 
     // arma o temporizador ITIMER_REAL
     status = setitimer(ITIMER_REAL, &timer, 0);
@@ -170,8 +192,8 @@ void ppos_init () {
     main_task.next = NULL;
     main_task.prev = NULL;
     main_task.status = PPOS_STATUS_RUNNING;
-    task_setprio(&(main_task), 0);
     main_task.type = PPOS_USER_TASK;
+    task_setprio(&(main_task), 0);
 
     // colocando main como tarefa corrente
     curr_task = &main_task;
@@ -227,6 +249,8 @@ int task_init (task_t *task, void (*start_func)(void *), void *arg) {
     task->next = NULL;
     task->prev = NULL;
     task->status = PPOS_STATUS_NEW;
+    task->type = PPOS_USER_TASK;
+    task->counter = PPOS_QUANTUM;
     task_setprio(task, 0);          // prioridade padrao 0
 
     // adicionando a tarefa a fila de prontos

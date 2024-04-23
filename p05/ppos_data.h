@@ -36,17 +36,21 @@
 #define PPOS_USER_TASK 0
 #define PPOS_SYS_TASK 1
 
+// quantum para cada tarefa
+#define PPOS_QUANTUM 20
+
 #define STACKSIZE 64*1024
 
 // Estrutura que define um Task Control Block (TCB)
 typedef struct task_t
 {
-  struct task_t *prev, *next ;		// ponteiros para usar em filas
-  int id ;			                	// identificador da tarefa
-  ucontext_t context ;		       	// contexto armazenado da tarefa
-  short status ;		            	// pronta, rodando, suspensa, ...
-  short prio_e, prio_d;           // prioridade estatica
-  short type;                     // tipo de task (user, system)
+  struct task_t *prev, *next;		// ponteiros para usar em filas
+  int id;			                	// identificador da tarefa
+  ucontext_t context;		       	// contexto armazenado da tarefa
+  short status;		            	// pronta, rodando, suspensa, ...
+  short prio_e, prio_d;         // prioridade estatica
+  short type;                   // user task, system task
+  unsigned short counter;       // contador para quantum
 } task_t ;
 
 // estrutura que define um semáforo
