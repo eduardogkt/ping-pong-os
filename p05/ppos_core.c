@@ -1,4 +1,4 @@
-#define _XOPEN_SOURCE 700
+#define _XOPEN_SOURCE 700  // evitar problemas com struct sigaction
 
 #include "ppos.h"
 #include "ppos_data.h"
@@ -32,31 +32,6 @@ void print_elem (void *ptr) {
     elem->prev ? printf ("%d", elem->prev->id) : printf ("*") ;
     printf ("<%d>", elem->id) ;
     elem->next ? printf ("%d", elem->next->id) : printf ("*") ;
-}
-
-void timer_init() {
-    // registra a ação para o sinal de timer SIGALRM (sinal do timer)
-    action.sa_handler = tick_handler;
-    sigemptyset (&action.sa_mask);
-    action.sa_flags = 0;
-
-    int status = sigaction (SIGALRM, &action, 0); 
-    if (status < 0) {
-        perror ("Erro em sigaction: ");
-        exit (1) ;
-    }
-
-    timer.it_value.tv_usec = 0;     // primeiro disparo, em micro-segundos
-    timer.it_value.tv_sec  = 5;     // primeiro disparo, em segundos
-    timer.it_interval.tv_usec = 0;  // disparos subsequentes, em micro-segundos
-    timer.it_interval.tv_sec  = 2;  // disparos subsequentes, em segundos
-
-    // arma o temporizador ITIMER_REAL
-    status = setitimer(ITIMER_REAL, &timer, 0);
-    if (status < 0) {
-        fprintf(stderr, "Error: task init - timer initialization failed.\n");
-        exit(PPOS_ERROR_TIMER_INIT);
-    }
 }
 
 // retorna a tarefa com maior prioridade da fila de prontos
@@ -151,7 +126,33 @@ void dispatcher() {
 }
 
 void tick_handler() {
+    printf("ola\n");
+}
 
+void timer_init() {
+    // registra a ação para o sinal de timer SIGALRM (sinal do timer)
+    action.sa_handler = tick_handler;
+    sigemptyset (&action.sa_mask);
+    action.sa_flags = 0;
+
+    int status = sigaction(SIGINT, &action, 0); 
+    if (status < 0) {
+        fprintf(stderr, "Error: task init - tick handler init failed.\n");
+        exit (1) ;
+    }
+
+    // inicializando o temporizador
+    timer.it_value.tv_usec = 0;     // primeiro disparo, em micro-segundos
+    timer.it_value.tv_sec  = 5;     // primeiro disparo, em segundos
+    timer.it_interval.tv_usec = 0;  // disparos subsequentes, em micro-segundos
+    timer.it_interval.tv_sec  = 2;  // disparos subsequentes, em segundos
+
+    // arma o temporizador ITIMER_REAL
+    status = setitimer(ITIMER_REAL, &timer, 0);
+    if (status < 0) {
+        fprintf(stderr, "Error: task init - timer init failed.\n");
+        exit(PPOS_ERROR_TIMER_INIT);
+    }
 }
 
 // funções gerais ==============================================================

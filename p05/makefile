@@ -1,5 +1,5 @@
 CC      = gcc
-C_FLAGS = -Wall -std=c99 -g
+C_FLAGS = -Wall -g
 EXE     = pingpong-scheduler
 DP      = ppos_core.c queue.c
 

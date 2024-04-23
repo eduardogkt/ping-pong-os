@@ -9,8 +9,6 @@
 
 #include <ucontext.h>		// biblioteca POSIX de trocas de contexto
 
-#define _XOPEN_SOURCE 700
-
 // status de tarefa
 #define PPOS_STATUS_NEW 0
 #define PPOS_STATUS_READY 1
