@@ -116,7 +116,6 @@ task_t *scheduler() {
 // implementação da tarefa dispatcher
 void dispatcher() {
     // vars para medir o tempo de processador do dispatcher e das tarefas
-    int init_disp_time, end_disp_time;
     int init_cpu_time, end_cpu_time;
 
     dispatcher_task.activations++;
@@ -126,7 +125,7 @@ void dispatcher() {
     
     // enquanto houverem tarefas do usuário
     while (user_tasks_count > 0) {
-        init_disp_time = systime();
+        init_cpu_time = systime();
 
         // escolhe a próxima tarefa a executar
         task_t *next_task = scheduler();
@@ -138,18 +137,18 @@ void dispatcher() {
         next_task->status = PPOS_STATUS_RUNNING;
         next_task->activations++;
 
-        end_disp_time = systime();
-        dispatcher_task.processor_time += (end_disp_time - init_disp_time);
+        end_cpu_time = systime();
+        dispatcher_task.processor_time += (end_cpu_time - init_cpu_time);
 
         init_cpu_time = systime();
-
         // transfere controle para a próxima tarefa
-        task_switch(next_task);
         
+        task_switch(next_task);
+
         end_cpu_time = systime();
         next_task->processor_time += (end_cpu_time - init_cpu_time);
 
-        init_disp_time = systime();
+        init_cpu_time = systime();
         dispatcher_task.activations++;
 
         // voltando ao dispatcher, trata a tarefa de acordo com seu estado
@@ -167,8 +166,8 @@ void dispatcher() {
                 free(next_task->context.uc_stack.ss_sp);
                 break;
         }
-        end_disp_time = systime();
-        dispatcher_task.processor_time += (end_disp_time - init_disp_time);
+        end_cpu_time = systime();
+        dispatcher_task.processor_time += (end_cpu_time - init_cpu_time);
     }  // end while
 
     // encerra a tarefa dispatcher
