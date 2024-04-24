@@ -141,8 +141,8 @@ void dispatcher() {
         dispatcher_task.processor_time += (end_cpu_time - init_cpu_time);
 
         init_cpu_time = systime();
-        // transfere controle para a próxima tarefa
         
+        // transfere controle para a próxima tarefa
         task_switch(next_task);
 
         end_cpu_time = systime();
