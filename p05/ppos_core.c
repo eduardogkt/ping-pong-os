@@ -46,17 +46,19 @@ task_t *get_next_task() {
     do {
         // pega a tarefa com maior prioridade
         if (aux->prio_d <= chosen_task->prio_d) {
-            if (aux->prio_d == chosen_task->prio_d) {
+
+            if (aux->prio_d < chosen_task->prio_d) {
+                chosen_task = aux;
+            }
+            else { // aux->prio_d == chosen_task->prio_d
+
                 if (aux->prio_e < chosen_task->prio_e) {
                     chosen_task = aux;
                 }
                 // se aux.prio_e == chosen_task.prio_e escolhe tarefa mais 
                 // velha, ou seja, a tarefa em chosen_task 
             } 
-            // aux.prio_d < chosen_task.prio_d
-            else {
-                chosen_task = aux;
-            }
+            
         }
         aux = aux->next;
     } while (aux != ready_queue);
@@ -136,9 +138,6 @@ void dispatcher() {
 }
 
 void tick_handler() {
-    if (curr_task == NULL) {
-        return;
-    }
     if (curr_task->type == PPOS_USER_TASK) {
         curr_task->counter--;
         if (curr_task->counter == 0) {
@@ -151,7 +150,8 @@ void tick_handler() {
     }
 }
 
-void timer_init() {
+// incializa tick handler para lidar com as interrupções
+void tick_handler_init() {
     // registra a ação para o sinal de timer SIGALRM (sinal do timer)
     action.sa_handler = tick_handler;
     sigemptyset (&action.sa_mask);
@@ -162,7 +162,10 @@ void timer_init() {
         fprintf(stderr, "Error: task init - tick handler init failed.\n");
         exit (1) ;
     }
+}
 
+// incializa o temporizador para ticks
+void timer_init() {
     // inicializando o temporizador
     timer.it_value.tv_usec = 1000;     // primeiro disparo, em micro-segundos
     timer.it_value.tv_sec  = 0;        // primeiro disparo, em segundos
@@ -170,11 +173,21 @@ void timer_init() {
     timer.it_interval.tv_sec  = 0;     // disparos subsequentes, em segundos
 
     // arma o temporizador ITIMER_REAL
-    status = setitimer(ITIMER_REAL, &timer, 0);
+    int status = setitimer(ITIMER_REAL, &timer, 0);
     if (status < 0) {
         fprintf(stderr, "Error: task init - timer init failed.\n");
         exit(PPOS_ERROR_TIMER_INIT);
     }
+}
+
+void main_task_init() {
+    getcontext(&(main_task.context));
+    main_task.id = task_id_count++;
+    main_task.next = NULL;
+    main_task.prev = NULL;
+    main_task.status = PPOS_STATUS_RUNNING;
+    main_task.type = PPOS_USER_TASK;
+    task_setprio(&(main_task), 0);
 }
 
 // funções gerais ==============================================================
@@ -184,16 +197,7 @@ void ppos_init () {
     // desativa buffer de stdout
     setvbuf (stdout, 0, _IONBF, 0);
 
-    // inicializa o temporizador e o interruption handler
-    timer_init();
-
-    getcontext(&(main_task.context));
-    main_task.id = task_id_count++;
-    main_task.next = NULL;
-    main_task.prev = NULL;
-    main_task.status = PPOS_STATUS_RUNNING;
-    main_task.type = PPOS_USER_TASK;
-    task_setprio(&(main_task), 0);
+    main_task_init();
 
     // colocando main como tarefa corrente
     curr_task = &main_task;
@@ -201,6 +205,9 @@ void ppos_init () {
     // inicializando a tarefa de dispatcher
     task_init(&dispatcher_task, (void *) dispatcher, "Dispatcher");
     dispatcher_task.type = PPOS_SYS_TASK;
+
+    tick_handler_init();
+    timer_init();
 
     #ifdef DEBUG
     printf("PPOS: ppos_init\n");
