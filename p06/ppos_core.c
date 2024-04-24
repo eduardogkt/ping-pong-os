@@ -20,6 +20,8 @@ task_t *ready_queue;        // fila de tarefas prontas
 struct sigaction action;    // estrutura para definir tratador de interrupções
 struct itimerval timer;     // estrutura para timer de interrrupções
 
+unsigned int clock = 0;     // timer interno (em milisegundos)
+
 // =============================================================================
 
 // imprime elemento com id inteiro
@@ -32,6 +34,19 @@ void print_elem (void *ptr) {
     elem->prev ? printf ("%d", elem->prev->id) : printf ("*") ;
     printf ("<%d>", elem->id) ;
     elem->next ? printf ("%d", elem->next->id) : printf ("*") ;
+}
+
+// inicializa os campos da tarefa
+void set_task(task_t *task, short type, short prio, short status) {
+    task->id = task_id_count++;
+    task->next = NULL;
+    task->prev = NULL;
+    task->status = status;
+    task_setprio(task, prio);
+    task->type = type;
+    task->quantum = PPOS_QUANTUM;
+    task->activations = 0;
+    task->init_time = systime();
 }
 
 // retorna a tarefa com maior prioridade da fila de prontos
@@ -100,49 +115,74 @@ task_t *scheduler() {
 
 // implementação da tarefa dispatcher
 void dispatcher() {
-    // retira o dispatcher da fila de prontas, para evitar que ele ative a si mesmo
+    // vars para medir o tempo de processador do dispatcher e das tarefas
+    int init_disp_time, end_disp_time;
+    int init_cpu_time, end_cpu_time;
+
+    dispatcher_task.activations++;
+
+    // retira o dispatcher da fila de prontas, para evitar que ative a si mesmo
     queue_remove((queue_t **) &ready_queue, (queue_t *) &dispatcher_task);
     
     // enquanto houverem tarefas do usuário
     while (user_tasks_count > 0) {
+        init_disp_time = systime();
 
         // escolhe a próxima tarefa a executar
         task_t *next_task = scheduler();
 
-        if (next_task != NULL) {
-            
-            next_task->status = PPOS_STATUS_RUNNING;
-
-            // transfere controle para a próxima tarefa
-            task_switch(next_task);
-
-            // voltando ao dispatcher, trata a tarefa de acordo com seu estado
-            switch (next_task->status) {
-                case PPOS_STATUS_NEW: break;
-                case PPOS_STATUS_READY: 
-                    // tarefa não acabou e precisa ser recolocada na fila de prontos
-                    queue_append((queue_t **) &ready_queue, (queue_t *) next_task);
-                    break;
-                    
-                case PPOS_STATUS_RUNNING: break;
-                case PPOS_STATUS_SUSPENDED: break;
-                case PPOS_STATUS_TERMINATED: 
-                    // libera a pilha da tarefa
-                    free(next_task->context.uc_stack.ss_sp);
-                    break;
-            }
+        if (next_task == NULL) {
+            continue;
         }
-    }
+            
+        next_task->status = PPOS_STATUS_RUNNING;
+        next_task->activations++;
+
+        end_disp_time = systime();
+        dispatcher_task.processor_time += (end_disp_time - init_disp_time);
+
+        init_cpu_time = systime();
+
+        // transfere controle para a próxima tarefa
+        task_switch(next_task);
+        
+        end_cpu_time = systime();
+        next_task->processor_time += (end_cpu_time - init_cpu_time);
+
+        init_disp_time = systime();
+        dispatcher_task.activations++;
+
+        // voltando ao dispatcher, trata a tarefa de acordo com seu estado
+        switch (next_task->status) {
+            case PPOS_STATUS_NEW: break;
+            case PPOS_STATUS_READY: 
+                // tarefa não acabou e precisa ser recolocada na fila de prontos
+                queue_append((queue_t **) &ready_queue, (queue_t *) next_task);
+                break;
+                
+            case PPOS_STATUS_RUNNING: break;
+            case PPOS_STATUS_SUSPENDED: break;
+            case PPOS_STATUS_TERMINATED: 
+                // libera a pilha da tarefa
+                free(next_task->context.uc_stack.ss_sp);
+                break;
+        }
+        end_disp_time = systime();
+        dispatcher_task.processor_time += (end_disp_time - init_disp_time);
+    }  // end while
+
     // encerra a tarefa dispatcher
     task_exit(0);
 }
 
+// tratador de interrupção de tick
 void tick_handler() {
+    clock++;
     if (curr_task->type == PPOS_USER_TASK) {
-        curr_task->counter--;
-        if (curr_task->counter == 0) {
+        curr_task->quantum--;
+        if (curr_task->quantum == 0) {
             // retorna para o dispatcher e recoloca a tarefa na fila de prontas
-            curr_task->counter = PPOS_QUANTUM;
+            curr_task->quantum = PPOS_QUANTUM;
             curr_task->status = PPOS_STATUS_READY;
             dispatcher_task.status = PPOS_STATUS_RUNNING;
             task_switch(&dispatcher_task);
@@ -180,16 +220,6 @@ void timer_init() {
     }
 }
 
-void main_task_init() {
-    getcontext(&(main_task.context));
-    main_task.id = task_id_count++;
-    main_task.next = NULL;
-    main_task.prev = NULL;
-    main_task.status = PPOS_STATUS_RUNNING;
-    main_task.type = PPOS_USER_TASK;
-    task_setprio(&(main_task), 0);
-}
-
 // funções gerais ==============================================================
 
 // Inicializa o sistema operacional; deve ser chamada no inicio do main()
@@ -197,7 +227,10 @@ void ppos_init () {
     // desativa buffer de stdout
     setvbuf (stdout, 0, _IONBF, 0);
 
-    main_task_init();
+    // incializa os campos da tarefa main
+    getcontext(&(main_task.context));
+    set_task(&main_task, PPOS_USER_TASK, 0, PPOS_STATUS_RUNNING);
+    main_task.activations = 1;  // ativação inicial
 
     // colocando main como tarefa corrente
     curr_task = &main_task;
@@ -252,13 +285,8 @@ int task_init (task_t *task, void (*start_func)(void *), void *arg) {
     // contexto da tarefa alterada para a função especificada
     makecontext(&(task->context), (void *) start_func, 1, arg);
 
-    task->id = task_id_count++;
-    task->next = NULL;
-    task->prev = NULL;
-    task->status = PPOS_STATUS_NEW;
-    task->type = PPOS_USER_TASK;
-    task->counter = PPOS_QUANTUM;
-    task_setprio(task, 0);          // prioridade padrao 0
+    // inicialização dos campos da tarefa com prioridade 0
+    set_task(task, PPOS_USER_TASK, 0, PPOS_STATUS_NEW);
 
     // adicionando a tarefa a fila de prontos
     queue_append((queue_t **) &ready_queue, (queue_t *) task);
@@ -281,9 +309,16 @@ int task_id () {
 
 // Termina a tarefa corrente com um status de encerramento
 void task_exit (int exit_code) {
-    #ifdef DEBUG
-    printf("PPOS: task_exit - exiting task %d\n", curr_task->id);
-    #endif
+    // #ifdef DEBUG
+    // printf("PPOS: task_exit - exiting task %d\n", curr_task->id);
+    // #endif
+
+    curr_task->execution_time = systime() - curr_task->init_time;
+    printf("PPOS: task_exit - ");
+    printf("task %d. ", curr_task->id);
+    printf("execution time %d ms. ", curr_task->execution_time); 
+    printf("processor time %d ms. ", curr_task->processor_time); 
+    printf("activations %d.\n", curr_task->activations);
 
     if (curr_task == &dispatcher_task) {
         // liberando a pilha da tarefa de dispatcher
@@ -355,6 +390,13 @@ void task_setprio (task_t *task, int prio) {
 // retorna a prioridade estática de uma tarefa (ou a tarefa atual)
 int task_getprio (task_t *task) {
     return (task == NULL) ? curr_task->prio_e : task->prio_e;
+}
+
+// operações de gestão do tempo ================================================
+
+// retorna o relógio atual (em milisegundos)
+unsigned int systime () {
+    return clock;
 }
 
 //==============================================================================

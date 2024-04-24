@@ -1,0 +1,19 @@
+main: inicio
+main: fim
+PPOS: task_exit - task 0. execution time 0 ms. processor time 0 ms. activations 1.
+    Pang: inicio em    0 ms
+        Peng: inicio em   20 ms
+            Ping: inicio em   40 ms
+                Pong: inicio em   60 ms
+                    Pung: inicio em   80 ms
+                    Pung: fim    em 16292 ms
+PPOS: task_exit - task 6. execution time 16292 ms. processor time 3240 ms. activations 163.
+    Pang: fim    em 16301 ms
+PPOS: task_exit - task 2. execution time 16301 ms. processor time 3260 ms. activations 164.
+        Peng: fim    em 16319 ms
+PPOS: task_exit - task 3. execution time 16319 ms. processor time 3260 ms. activations 164.
+            Ping: fim    em 16330 ms
+PPOS: task_exit - task 4. execution time 16330 ms. processor time 3260 ms. activations 164.
+                Pong: fim    em 16331 ms
+PPOS: task_exit - task 5. execution time 16331 ms. processor time 3260 ms. activations 164.
+PPOS: task_exit - task 1. execution time 16331 ms. processor time 0 ms. activations 820.

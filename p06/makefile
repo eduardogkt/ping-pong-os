@@ -8,6 +8,9 @@ all: $(EXE)
 debug: C_FLAGS += -DDEBUG
 debug: all
 
+prio: EXE = pingpong-contab-prio
+prio: all
+
 $(EXE): $(EXE).c $(DP)
 	$(CC) $(C_FLAGS) $(DP) $(EXE).c -o $(EXE)
 
