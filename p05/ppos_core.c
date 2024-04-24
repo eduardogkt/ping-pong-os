@@ -181,12 +181,12 @@ void timer_init() {
 }
 
 // inicializa os campos da tarefa
-void set_task(task_t *task, short type) {
+void set_task(task_t *task, short type, short prio, short status) {
     task->id = task_id_count++;
     task->next = NULL;
     task->prev = NULL;
-    task->status = PPOS_STATUS_NEW;
-    task_setprio(task, 0);
+    task->status = status;
+    task_setprio(task, prio);
     task->type = type;
     task->counter = PPOS_QUANTUM;
 }
@@ -200,7 +200,7 @@ void ppos_init () {
 
     // incializando os campos da tarefa main
     getcontext(&(main_task.context));
-    set_task(&main_task, PPOS_USER_TASK);
+    set_task(&main_task, PPOS_USER_TASK, -20, PPOS_STATUS_RUNNING);
 
     // colocando main como tarefa corrente
     curr_task = &main_task;
@@ -255,8 +255,8 @@ int task_init (task_t *task, void (*start_func)(void *), void *arg) {
     // contexto da tarefa alterada para a função especificada
     makecontext(&(task->context), (void *) start_func, 1, arg);
 
-    // inicialização dos campos da tarefa
-    set_task(task, PPOS_USER_TASK);
+    // inicialização dos campos da tarefa com prioridade 0
+    set_task(task, PPOS_USER_TASK, 0, PPOS_STATUS_NEW);
 
     // adicionando a tarefa a fila de prontos
     queue_append((queue_t **) &ready_queue, (queue_t *) task);
