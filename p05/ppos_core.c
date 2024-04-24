@@ -180,14 +180,15 @@ void timer_init() {
     }
 }
 
-void main_task_init() {
-    getcontext(&(main_task.context));
-    main_task.id = task_id_count++;
-    main_task.next = NULL;
-    main_task.prev = NULL;
-    main_task.status = PPOS_STATUS_RUNNING;
-    main_task.type = PPOS_USER_TASK;
-    task_setprio(&(main_task), 0);
+// inicializa os campos da tarefa
+void set_task(task_t *task, short type) {
+    task->id = task_id_count++;
+    task->next = NULL;
+    task->prev = NULL;
+    task->status = PPOS_STATUS_NEW;
+    task_setprio(task, 0);
+    task->type = type;
+    task->counter = PPOS_QUANTUM;
 }
 
 // funções gerais ==============================================================
@@ -197,7 +198,9 @@ void ppos_init () {
     // desativa buffer de stdout
     setvbuf (stdout, 0, _IONBF, 0);
 
-    main_task_init();
+    // incializando os campos da tarefa main
+    getcontext(&(main_task.context));
+    set_task(&main_task, PPOS_USER_TASK);
 
     // colocando main como tarefa corrente
     curr_task = &main_task;
@@ -252,13 +255,8 @@ int task_init (task_t *task, void (*start_func)(void *), void *arg) {
     // contexto da tarefa alterada para a função especificada
     makecontext(&(task->context), (void *) start_func, 1, arg);
 
-    task->id = task_id_count++;
-    task->next = NULL;
-    task->prev = NULL;
-    task->status = PPOS_STATUS_NEW;
-    task->type = PPOS_USER_TASK;
-    task->counter = PPOS_QUANTUM;
-    task_setprio(task, 0);          // prioridade padrao 0
+    // inicialização dos campos da tarefa
+    set_task(task, PPOS_USER_TASK);
 
     // adicionando a tarefa a fila de prontos
     queue_append((queue_t **) &ready_queue, (queue_t *) task);
