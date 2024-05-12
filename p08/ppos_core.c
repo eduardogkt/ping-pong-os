@@ -78,10 +78,10 @@ task_t *get_next_task() {
         aux = aux->next;
     } while (aux != ready_queue);
 
-    #ifdef DEBUG
-    printf("PPOS: sheduler - highest prio: %d\n", chosen_task->prio_d);
-    printf("PPOS: sheduler - chosen task: %d\n", chosen_task->id);
-    #endif
+    // #ifdef DEBUG
+    // printf("PPOS: sheduler - highest prio: %d\n", chosen_task->prio_d);
+    // printf("PPOS: sheduler - chosen task: %d\n", chosen_task->id);
+    // #endif
     
     return chosen_task;
 }
@@ -199,17 +199,17 @@ void tick_handler_init() {
     int status = sigaction(SIGALRM, &action, 0); 
     if (status < 0) {
         fprintf(stderr, "Error: task init - tick handler init failed.\n");
-        exit (1) ;
+        exit (PPOS_ERROR_HANDLER_INIT);
     }
 }
 
 // incializa o temporizador para ticks
 void timer_init() {
     // inicializando o temporizador
-    timer.it_value.tv_usec = 1000;     // primeiro disparo, em micro-segundos
-    timer.it_value.tv_sec  = 0;        // primeiro disparo, em segundos
-    timer.it_interval.tv_usec = 1000;  // disparos subsequentes, em micro-segundos
-    timer.it_interval.tv_sec  = 0;     // disparos subsequentes, em segundos
+    timer.it_value.tv_usec = 1000;     // primeiro disparo em micro-segundos
+    timer.it_value.tv_sec  = 0;        // primeiro disparo em segundos
+    timer.it_interval.tv_usec = 1000;  // disparos subsequentes em microsegundos
+    timer.it_interval.tv_sec  = 0;     // disparos subsequentes em segundos
 
     // arma o temporizador ITIMER_REAL
     int status = setitimer(ITIMER_REAL, &timer, 0);
@@ -217,6 +217,21 @@ void timer_init() {
         fprintf(stderr, "Error: task init - timer init failed.\n");
         exit(PPOS_ERROR_TIMER_INIT);
     }
+}
+
+// imprime as informações de tempo final da tarefa finalizada
+void display_time_infos() {
+    curr_task->execution_time = systime() - curr_task->init_time;
+    printf("Task %d exit: ", curr_task->id);
+    printf("execution time %d ms, ", curr_task->execution_time);
+    printf("processor time %d ms, ", curr_task->processor_time);
+    printf("%d activations\n", curr_task->activations);
+
+    // printf("PPOS: task_exit - ");
+    // printf("task %d. ", curr_task->id);
+    // printf("execution time %d ms. ", curr_task->execution_time); 
+    // printf("processor time %d ms. ", curr_task->processor_time); 
+    // printf("activations %d.\n", curr_task->activations);
 }
 
 // funções gerais ==============================================================
@@ -230,6 +245,7 @@ void ppos_init () {
     getcontext(&(main_task.context));
     set_task(&main_task, PPOS_USER_TASK, 0, PPOS_STATUS_RUNNING);
     main_task.activations = 1;  // ativação inicial
+    queue_append((queue_t **) &ready_queue, (queue_t *) &main_task);
 
     // colocando main como tarefa corrente
     curr_task = &main_task;
@@ -308,32 +324,29 @@ int task_id () {
 
 // Termina a tarefa corrente com um status de encerramento
 void task_exit (int exit_code) {
-    // #ifdef DEBUG
-    // printf("PPOS: task_exit - exiting task %d\n", curr_task->id);
-    // #endif
-
-    curr_task->execution_time = systime() - curr_task->init_time;
-    printf("Task %d exit: ", curr_task->id);
-    printf("execution time %d ms, ", curr_task->execution_time);
-    printf("processor time %d ms, ", curr_task->processor_time);
-    printf("%d activations\n", curr_task->activations);
-
-    // printf("PPOS: task_exit - ");
-    // printf("task %d. ", curr_task->id);
-    // printf("execution time %d ms. ", curr_task->execution_time); 
-    // printf("processor time %d ms. ", curr_task->processor_time); 
-    // printf("activations %d.\n", curr_task->activations);
+    // imprimindo informações de tempo da tarefa
+    display_time_infos();
 
     if (curr_task == &dispatcher_task) {
         // liberando a pilha da tarefa de dispatcher
         free((&dispatcher_task)->context.uc_stack.ss_sp);
         exit(exit_code);
     }
+
     // decrementando o contador de tarefas do usuário para o dispatcher
     user_tasks_count--;
     curr_task->status = PPOS_STATUS_TERMINATED;
 
-    // outras tarefas mudam para a tarefa de dispatcher
+    // acordando as tarefas que estão esperando
+    if (curr_task->waiting_tasks != NULL) {
+        task_t *aux = curr_task->waiting_tasks;
+
+        do {
+            task_awake(aux, &(curr_task->waiting_tasks));
+            aux = aux->next;
+        } while (aux != ready_queue);
+    }
+
     task_switch(&dispatcher_task);
 }
 
@@ -344,10 +357,10 @@ int task_switch (task_t *task) {
         return PPOS_ERROR_SWITCH_NULL_TASK;
     }
 
-    #ifdef DEBUG
-    printf("PPOS: task_switch - task %d -> task %d\n", 
-            curr_task->id, task->id);
-    #endif
+    // #ifdef DEBUG
+    // printf("PPOS: task_switch - task %d -> task %d\n", 
+    //         curr_task->id, task->id);
+    // #endif
 
     task_t *src = curr_task;
     task_t *dest = task;
@@ -368,17 +381,20 @@ void task_suspend (task_t **queue) {
     if (queue == NULL) {
         return;
     }
+    
+    #if DEBUG
+    printf("PPOS: task_suspend - suspending task %d.\n", curr_task->id);
+    #endif
 
     // remove tarefa atual da fila de prontas
-    int ret = queue_remove((queue_t **) &ready_queue, (queue_t *) curr_task);
-    // if (ret < 0) {
-    //     return;
-    // }
+    queue_remove((queue_t **) &ready_queue, (queue_t *) curr_task);
+
     curr_task->status = PPOS_STATUS_SUSPENDED;
 
     // insere tarefa atual na fila informada
-    ret = queue_append((queue_t **) queue, (queue_t *) curr_task);
+    int ret = queue_append((queue_t **) queue, (queue_t *) curr_task);
     if (ret < 0) {
+        fprintf(stderr, "Error: task_suspend - queue append.\n");
         return;
     }
     task_switch(&dispatcher_task);
@@ -391,16 +407,19 @@ void task_awake (task_t *task, task_t **queue) {
         return;
     }
 
+    #if DEBUG
+    printf("PPOS: task_awake - awaking task %d.\n", task->id);
+    #endif
+
     // remove tarefa da fila informada
-    int ret = queue_remove((queue_t **) queue, (queue_t *) task);
-    // if (ret < 0) {
-    //     return;
-    // }
-    curr_task->status = PPOS_STATUS_READY;
+    queue_remove((queue_t **) queue, (queue_t *) task);
+
+    task->status = PPOS_STATUS_READY;
 
     // insere tarefa na fila de prontas
-    ret = queue_append((queue_t **) &ready_queue, (queue_t *) task);
+    int ret = queue_append((queue_t **) &ready_queue, (queue_t *) task);
     if (ret < 0) {
+        fprintf(stderr, "Error: task_suspend - queue append.\n");
         return;
     }
     task_switch(curr_task);
@@ -451,6 +470,20 @@ unsigned int systime () {
 
 // a tarefa corrente aguarda o encerramento de outra task
 int task_wait (task_t *task) {
+    #if DEBUG
+    printf("PPOS: task_wait - task %d waiting for task %d.\n", 
+            curr_task->id, task->id);
+    #endif
+    
+    if (task == NULL || task->status == PPOS_STATUS_TERMINATED) {
+        return PPOS_ERROR_WAIT_INVALID_TASK;
+    }
+    // suspender a tarefa atual e coloca na fila de espera da tarefa task
+    task_suspend(&(task->waiting_tasks));
+
+    // no caso a tarefa a ser retirada da fila de prontas e colocada no fila da task
+    // é a tarefa main
+
     return 0;
 }
 

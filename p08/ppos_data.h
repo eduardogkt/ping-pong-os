@@ -28,6 +28,10 @@
 
 // erros task_init
 #define PPOS_ERROR_TIMER_INIT -1
+#define PPOS_ERROR_HANDLER_INIT -2
+
+// erros task_wait
+#define PPOS_ERROR_WAIT_INVALID_TASK -1
 
 // escalonamento
 #define PPOS_SCHED_AGING (-1)
@@ -42,7 +46,8 @@
 #define STACKSIZE 64*1024
 
 // Estrutura que define um Task Control Block (TCB)
-typedef struct task_t
+typedef struct task_t task_t;
+struct task_t
 {
   struct task_t *prev, *next;   // ponteiros para usar em filas
   int id;                       // identificador da tarefa
@@ -56,7 +61,9 @@ typedef struct task_t
   unsigned int execution_time;  // tempo de excução da tarefa
   unsigned int processor_time;  // tempo de processsamento da tarefa
   unsigned int activations;     // numero de ativações da tarefa
-} task_t ;
+
+  task_t *waiting_tasks;        // tarefas suspensas esperando a tarefa terminar
+};
 
 // estrutura que define um semáforo
 typedef struct
