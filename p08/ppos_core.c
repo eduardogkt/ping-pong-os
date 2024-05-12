@@ -1,4 +1,4 @@
-// #define _XOPEN_SOURCE 700  // evitar problemas com struct sigaction
+#define _XOPEN_SOURCE 700  // evitar problemas com struct sigaction
 
 #include "ppos.h"
 #include "ppos_data.h"
