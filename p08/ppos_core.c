@@ -338,15 +338,17 @@ void task_exit (int exit_code) {
     curr_task->status = PPOS_STATUS_TERMINATED;
     curr_task->exit_code = exit_code;
 
-    // acordando as tarefas que estão esperando
+    // acordando as tarefas que estão esperando na fila da tarefa corrente
     task_t *waiting_tasks = curr_task->waiting_tasks;
     task_t *aux = waiting_tasks;
 
     if (waiting_tasks != NULL) {
-        do {
-            task_awake(aux, &(waiting_tasks));
+
+        while (queue_size((queue_t *) waiting_tasks) != 0) {
+            task_t *task = aux;
             aux = aux->next;
-        } while (aux != ready_queue);
+            task_awake(task, &(waiting_tasks));
+        }
     }
 
     task_switch(&dispatcher_task);
