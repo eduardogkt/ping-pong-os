@@ -63,6 +63,7 @@ struct task_t
   unsigned int activations;     // numero de ativações da tarefa
 
   task_t *waiting_tasks;        // tarefas suspensas esperando a tarefa terminar
+  int exit_code;                // código de saida da tarefa
 };
 
 // estrutura que define um semáforo

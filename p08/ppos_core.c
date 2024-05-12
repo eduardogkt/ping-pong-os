@@ -1,4 +1,4 @@
-#define _XOPEN_SOURCE 700  // evitar problemas com struct sigaction
+// #define _XOPEN_SOURCE 700  // evitar problemas com struct sigaction
 
 #include "ppos.h"
 #include "ppos_data.h"
@@ -336,13 +336,15 @@ void task_exit (int exit_code) {
     // decrementando o contador de tarefas do usuário para o dispatcher
     user_tasks_count--;
     curr_task->status = PPOS_STATUS_TERMINATED;
+    curr_task->exit_code = exit_code;
 
     // acordando as tarefas que estão esperando
-    if (curr_task->waiting_tasks != NULL) {
-        task_t *aux = curr_task->waiting_tasks;
+    task_t *waiting_tasks = curr_task->waiting_tasks;
+    task_t *aux = waiting_tasks;
 
+    if (waiting_tasks != NULL) {
         do {
-            task_awake(aux, &(curr_task->waiting_tasks));
+            task_awake(aux, &(waiting_tasks));
             aux = aux->next;
         } while (aux != ready_queue);
     }
@@ -484,7 +486,7 @@ int task_wait (task_t *task) {
     // no caso a tarefa a ser retirada da fila de prontas e colocada no fila da task
     // é a tarefa main
 
-    return 0;
+    return task->exit_code;
 }
 
 //==============================================================================
