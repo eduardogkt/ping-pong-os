@@ -116,7 +116,7 @@ task_t *scheduler() {
 // implementação da tarefa dispatcher
 void dispatcher() {
     // vars para medir o tempo de processador do dispatcher e das tarefas
-    int init_cpu_time, end_cpu_time;
+    int start_cpu_time, end_cpu_time;
 
     dispatcher_task.activations++;
 
@@ -125,7 +125,7 @@ void dispatcher() {
     
     // enquanto houverem tarefas do usuário
     while (user_tasks_count > 0) {
-        init_cpu_time = systime();
+        start_cpu_time = systime();
 
         // escolhe a próxima tarefa a executar
         task_t *next_task = scheduler();
@@ -138,17 +138,17 @@ void dispatcher() {
         next_task->activations++;
 
         end_cpu_time = systime();
-        dispatcher_task.processor_time += (end_cpu_time - init_cpu_time);
+        dispatcher_task.processor_time += (end_cpu_time - start_cpu_time);
 
-        init_cpu_time = systime();
+        start_cpu_time = systime();
         
         // transfere controle para a próxima tarefa
         task_switch(next_task);
 
         end_cpu_time = systime();
-        next_task->processor_time += (end_cpu_time - init_cpu_time);
+        next_task->processor_time += (end_cpu_time - start_cpu_time);
 
-        init_cpu_time = systime();
+        start_cpu_time = systime();
         dispatcher_task.activations++;
 
         // voltando ao dispatcher, trata a tarefa de acordo com seu estado
@@ -167,7 +167,7 @@ void dispatcher() {
                 break;
         }
         end_cpu_time = systime();
-        dispatcher_task.processor_time += (end_cpu_time - init_cpu_time);
+        dispatcher_task.processor_time += (end_cpu_time - start_cpu_time);
     }  // end while
 
     // encerra a tarefa dispatcher
@@ -313,11 +313,16 @@ void task_exit (int exit_code) {
     // #endif
 
     curr_task->execution_time = systime() - curr_task->init_time;
-    printf("PPOS: task_exit - ");
-    printf("task %d. ", curr_task->id);
-    printf("execution time %d ms. ", curr_task->execution_time); 
-    printf("processor time %d ms. ", curr_task->processor_time); 
-    printf("activations %d.\n", curr_task->activations);
+    printf("Task %d exit: ", curr_task->id);
+    printf("execution time %d ms, ", curr_task->execution_time);
+    printf("processor time %d ms, ", curr_task->processor_time);
+    printf("%d activations\n", curr_task->activations);
+
+    // printf("PPOS: task_exit - ");
+    // printf("task %d. ", curr_task->id);
+    // printf("execution time %d ms. ", curr_task->execution_time); 
+    // printf("processor time %d ms. ", curr_task->processor_time); 
+    // printf("activations %d.\n", curr_task->activations);
 
     if (curr_task == &dispatcher_task) {
         // liberando a pilha da tarefa de dispatcher
