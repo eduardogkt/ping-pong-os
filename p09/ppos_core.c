@@ -114,10 +114,28 @@ task_t *scheduler() {
     return chosen_task;
 }
 
+// trata a tarefa de acordo com seu estado
+void status_handler(task_t *task) {
+    switch (task->status) {
+        case PPOS_STATUS_NEW: break;
+        case PPOS_STATUS_READY: 
+            // tarefa não acabou e precisa ser recolocada na fila de prontos
+            queue_append((queue_t **) &ready_queue, (queue_t *) next_task);
+            break;
+            
+        case PPOS_STATUS_RUNNING: break;
+        case PPOS_STATUS_SUSPENDED: break;
+        case PPOS_STATUS_TERMINATED: 
+            // libera a pilha da tarefa
+            free(task->context.uc_stack.ss_sp);
+            break;
+    }
+}
+
 // implementação da tarefa dispatcher
 void dispatcher() {
     // vars para medir o tempo de processador do dispatcher e das tarefas
-    int start_cpu_time, end_cpu_time;
+    int start_time, end_time;
 
     dispatcher_task.activations++;
 
@@ -126,7 +144,7 @@ void dispatcher() {
     
     // enquanto houverem tarefas do usuário
     while (user_tasks_count > 0) {
-        start_cpu_time = systime();
+        start_time = systime();
 
         // escolhe a próxima tarefa a executar
         task_t *next_task = scheduler();
@@ -138,37 +156,25 @@ void dispatcher() {
         next_task->status = PPOS_STATUS_RUNNING;
         next_task->activations++;
 
-        end_cpu_time = systime();
-        dispatcher_task.processor_time += (end_cpu_time - start_cpu_time);
+        end_time = systime();
+        dispatcher_task.processor_time += (end_time - start_time);
 
-        start_cpu_time = systime();
+        start_time = systime();
         
         // transfere controle para a próxima tarefa
         task_switch(next_task);
 
-        end_cpu_time = systime();
-        next_task->processor_time += (end_cpu_time - start_cpu_time);
+        end_time = systime();
+        next_task->processor_time += (end_time - start_time);
 
-        start_cpu_time = systime();
+        start_time = systime();
         dispatcher_task.activations++;
 
-        // voltando ao dispatcher, trata a tarefa de acordo com seu estado
-        switch (next_task->status) {
-            case PPOS_STATUS_NEW: break;
-            case PPOS_STATUS_READY: 
-                // tarefa não acabou e precisa ser recolocada na fila de prontos
-                queue_append((queue_t **) &ready_queue, (queue_t *) next_task);
-                break;
-                
-            case PPOS_STATUS_RUNNING: break;
-            case PPOS_STATUS_SUSPENDED: break;
-            case PPOS_STATUS_TERMINATED: 
-                // libera a pilha da tarefa
-                free(next_task->context.uc_stack.ss_sp);
-                break;
-        }
-        end_cpu_time = systime();
-        dispatcher_task.processor_time += (end_cpu_time - start_cpu_time);
+        // trata a tarefa de acordo com seu estado
+        status_handler(next_task);
+        
+        end_time = systime();
+        dispatcher_task.processor_time += (end_time - start_time);
     }  // end while
 
     // encerra a tarefa dispatcher
