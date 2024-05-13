@@ -241,6 +241,25 @@ void display_time_infos() {
     // printf("activations %d.\n", curr_task->activations);
 }
 
+// acorda as tarefas esperando na fila de tarefas suspensas
+void awake_waiting_tasks(task_t *task) {
+    if (task == NULL) {
+        return;
+    }
+
+    task_t *waiting_tasks = curr_task->waiting_tasks;
+    task_t *aux = waiting_tasks;
+
+    if (waiting_tasks != NULL) {
+
+        while (queue_size((queue_t *) waiting_tasks) != 0) {
+            task_t *task = aux;
+            aux = aux->next;
+            task_awake(task, &(waiting_tasks));
+        }
+    }
+}
+
 // funções gerais ==============================================================
 
 // Inicializa o sistema operacional; deve ser chamada no inicio do main()
@@ -346,17 +365,7 @@ void task_exit (int exit_code) {
     curr_task->exit_code = exit_code;
 
     // acordando as tarefas que estão esperando na fila da tarefa corrente
-    task_t *waiting_tasks = curr_task->waiting_tasks;
-    task_t *aux = waiting_tasks;
-
-    if (waiting_tasks != NULL) {
-
-        while (queue_size((queue_t *) waiting_tasks) != 0) {
-            task_t *task = aux;
-            aux = aux->next;
-            task_awake(task, &(waiting_tasks));
-        }
-    }
+    awake_waiting_tasks(curr_task);
 
     task_switch(&dispatcher_task);
 }
@@ -496,9 +505,6 @@ int task_wait (task_t *task) {
     }
     // suspender a tarefa atual e coloca na fila de espera da tarefa task
     task_suspend(&(task->waiting_tasks));
-
-    // no caso a tarefa a ser retirada da fila de prontas e colocada no fila da task
-    // é a tarefa main
 
     return task->exit_code;
 }
