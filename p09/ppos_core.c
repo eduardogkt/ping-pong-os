@@ -120,7 +120,7 @@ void status_handler(task_t *task) {
         case PPOS_STATUS_NEW: break;
         case PPOS_STATUS_READY: 
             // tarefa não acabou e precisa ser recolocada na fila de prontos
-            queue_append((queue_t **) &ready_queue, (queue_t *) next_task);
+            queue_append((queue_t **) &ready_queue, (queue_t *) task);
             break;
             
         case PPOS_STATUS_RUNNING: break;
