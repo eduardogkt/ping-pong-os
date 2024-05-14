@@ -242,14 +242,10 @@ void awake_waiting_tasks(task_t *task) {
 
     task_t *waiting_tasks = curr_task->waiting_tasks;
     task_t *aux = waiting_tasks;
-
-    if (waiting_tasks != NULL) {
-
-        while (queue_size((queue_t *) waiting_tasks) != 0) {
-            task_t *task = aux;
-            aux = aux->next;
-            task_awake(task, &(waiting_tasks));
-        }
+    
+    while (aux != NULL) {
+        task_awake(aux, &(waiting_tasks));
+        aux = waiting_tasks;
     }
 }
 

@@ -52,7 +52,6 @@ void set_task(task_t *task, short type, short prio, short status) {
 
 // retorna a tarefa com maior prioridade da fila de prontos
 task_t *get_next_task() {
-    // fila vazia
     if (ready_queue == NULL) {
         return NULL;
     }
@@ -123,18 +122,21 @@ void check_sleeping_tasks() {
         return;
     }
 
-    task_t *aux = sleep_queue->next;
-    while (aux != sleep_queue) {
+    int curr_time = systime();
+    queue_print("suspended", (queue_t *) sleep_queue, print_elem);
+
+    task_t *aux = sleep_queue;
+    do {
         task_t *task = aux;
         aux = aux->next;
-        if (task->awake_time == systime()) {
+
+        printf("%d ", task->id);
+        
+        if (task->awake_time <= curr_time) {
             task_awake(task, &sleep_queue);
         }
-    }
-    task_t *task = aux;
-    if (task->awake_time == systime()) {
-        task_awake(task, &sleep_queue);
-    }
+    } while (aux != sleep_queue);
+    printf("\n");
 }
 
 // trata a tarefa de acordo com seu estado
@@ -178,6 +180,7 @@ void dispatcher() {
 
         if (next_task == NULL) {
             continue;
+            exit(1);
         }
             
         next_task->status = PPOS_STATUS_RUNNING;
@@ -277,14 +280,10 @@ void awake_waiting_tasks(task_t *task) {
 
     task_t *wait_queue = curr_task->wait_queue;
     task_t *aux = wait_queue;
-
-    if (wait_queue != NULL) {
-
-        while (queue_size((queue_t *) wait_queue) != 0) {
-            task_t *task = aux;
-            aux = aux->next;
-            task_awake(task, &wait_queue);
-        }
+    
+    while (aux != NULL) {
+        task_awake(aux, &(wait_queue));
+        aux = wait_queue;
     }
 }
 
