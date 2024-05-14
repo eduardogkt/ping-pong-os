@@ -53,6 +53,7 @@ struct task_t
   int id;                       // identificador da tarefa
   ucontext_t context;           // contexto armazenado da tarefa
   short status;                 // pronta, rodando, suspensa, ...
+  
   short prio_e, prio_d;         // prioridade estatica
   short type;                   // user task, system task
   unsigned short quantum;       // contador para quantum
@@ -62,8 +63,10 @@ struct task_t
   unsigned int processor_time;  // tempo de processsamento da tarefa
   unsigned int activations;     // numero de ativações da tarefa
 
-  task_t *waiting_tasks;        // tarefas suspensas esperando a tarefa terminar
+  task_t *wait_queue;           // tarefas suspensas esperando a tarefa terminar
   int exit_code;                // código de saida da tarefa
+
+  unsigned int awake_time;      // horario para acordar a terafa quando suspensa
 };
 
 // estrutura que define um semáforo

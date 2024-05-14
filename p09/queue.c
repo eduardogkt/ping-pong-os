@@ -173,6 +173,6 @@ int queue_remove (queue_t **queue, queue_t *elem) {
         aux = aux->next;
     }
     // se não encontrou o elemento na fila
-    // fprintf(stderr, "Error: queue remove - the element is not in the queue.\n");
+    fprintf(stderr, "Error: queue remove - the element is not in the queue.\n");
     return ERROR_ELEM_NOT_IN_QUEUE;
 }

@@ -16,7 +16,7 @@ task_t *curr_task;          // ponteiro para tarefa corrente
 task_t main_task;           // tarefa main 
 task_t dispatcher_task;     // tafera de dispatcher
 task_t *ready_queue;        // fila de tarefas prontas
-task_t *suspended_queue;        // fila de tarefas dormindo (suspensas)
+task_t *sleep_queue;        // fila de tarefas dormindo (suspensas)
 
 struct sigaction action;    // estrutura para definir tratador de interrupções
 struct itimerval timer;     // estrutura para timer de interrrupções
@@ -91,12 +91,15 @@ task_t *get_next_task() {
 task_t *scheduler() {
     // procura pela tarefa com maior prioridade na fila
     task_t *chosen_task = get_next_task();
+    if (chosen_task == NULL) {
+        return NULL;
+    }
 
     // resetando a prioridade dinamica da tarefa escolhida
     chosen_task->prio_d = chosen_task->prio_e;
 
     // retirando a tarefa com maior prioridade da fila
-    queue_remove((queue_t **) &ready_queue, (queue_t *) chosen_task);
+    // queue_remove((queue_t **) &ready_queue, (queue_t *) chosen_task);
 
     // atualizando a prioridade das tarefas nao escolhidas
     task_t *aux = ready_queue;
@@ -114,6 +117,26 @@ task_t *scheduler() {
     return chosen_task;
 }
 
+// procura por tarefas que precisam ser acordadas na fila de tarefas dormindo
+void check_sleeping_tasks() {
+    if (sleep_queue == NULL) {
+        return;
+    }
+
+    task_t *aux = sleep_queue->next;
+    while (aux != sleep_queue) {
+        task_t *task = aux;
+        aux = aux->next;
+        if (task->awake_time == systime()) {
+            task_awake(task, &sleep_queue);
+        }
+    }
+    task_t *task = aux;
+    if (task->awake_time == systime()) {
+        task_awake(task, &sleep_queue);
+    }
+}
+
 // trata a tarefa de acordo com seu estado
 void status_handler(task_t *task) {
     switch (task->status) {
@@ -126,6 +149,7 @@ void status_handler(task_t *task) {
         case PPOS_STATUS_RUNNING: break;
         case PPOS_STATUS_SUSPENDED: break;
         case PPOS_STATUS_TERMINATED: 
+            queue_remove((queue_t **) &ready_queue, (queue_t *) task);
             // libera a pilha da tarefa
             free(task->context.uc_stack.ss_sp);
             break;
@@ -135,7 +159,7 @@ void status_handler(task_t *task) {
 // implementação da tarefa dispatcher
 void dispatcher() {
     // vars para medir o tempo de processador do dispatcher e das tarefas
-    int start_time, end_time;
+    int time_start, time_end;
 
     dispatcher_task.activations++;
 
@@ -144,7 +168,10 @@ void dispatcher() {
     
     // enquanto houverem tarefas do usuário
     while (user_tasks_count > 0) {
-        start_time = systime();
+        time_start = systime();
+
+        // verifica as tarefas que precisam ser acordadas
+        check_sleeping_tasks();
 
         // escolhe a próxima tarefa a executar
         task_t *next_task = scheduler();
@@ -156,25 +183,25 @@ void dispatcher() {
         next_task->status = PPOS_STATUS_RUNNING;
         next_task->activations++;
 
-        end_time = systime();
-        dispatcher_task.processor_time += (end_time - start_time);
+        time_end = systime();
+        dispatcher_task.processor_time += (time_end - time_start);
 
-        start_time = systime();
+        time_start = systime();
         
         // transfere controle para a próxima tarefa
         task_switch(next_task);
 
-        end_time = systime();
-        next_task->processor_time += (end_time - start_time);
+        time_end = systime();
+        next_task->processor_time += (time_end - time_start);
 
-        start_time = systime();
+        time_start = systime();
         dispatcher_task.activations++;
 
         // trata a tarefa de acordo com seu estado
         status_handler(next_task);
         
-        end_time = systime();
-        dispatcher_task.processor_time += (end_time - start_time);
+        time_end = systime();
+        dispatcher_task.processor_time += (time_end - time_start);
     }  // end while
 
     // encerra a tarefa dispatcher
@@ -184,6 +211,7 @@ void dispatcher() {
 // tratador de interrupção de tick
 void tick_handler() {
     clock++;
+
     if (curr_task->type == PPOS_USER_TASK) {
         curr_task->quantum--;
         if (curr_task->quantum == 0) {
@@ -247,15 +275,15 @@ void awake_waiting_tasks(task_t *task) {
         return;
     }
 
-    task_t *waiting_tasks = curr_task->waiting_tasks;
-    task_t *aux = waiting_tasks;
+    task_t *wait_queue = curr_task->wait_queue;
+    task_t *aux = wait_queue;
 
-    if (waiting_tasks != NULL) {
+    if (wait_queue != NULL) {
 
-        while (queue_size((queue_t *) waiting_tasks) != 0) {
+        while (queue_size((queue_t *) wait_queue) != 0) {
             task_t *task = aux;
             aux = aux->next;
-            task_awake(task, &(waiting_tasks));
+            task_awake(task, &wait_queue);
         }
     }
 }
@@ -406,17 +434,28 @@ void task_suspend (task_t **queue) {
     printf("PPOS: task_suspend - suspending task %d.\n", curr_task->id);
     #endif
 
+    int status;
+
     // remove tarefa atual da fila de prontas
-    queue_remove((queue_t **) &ready_queue, (queue_t *) curr_task);
+    status = queue_remove((queue_t **) &ready_queue, (queue_t *) curr_task);
+    if (status < 0) {
+        fprintf(stderr, "PPOS: task_suspend - queue remove failed.\n");
+    }
 
     curr_task->status = PPOS_STATUS_SUSPENDED;
 
     // insere tarefa atual na fila informada
-    int ret = queue_append((queue_t **) queue, (queue_t *) curr_task);
-    if (ret < 0) {
-        fprintf(stderr, "Error: task_suspend - queue append.\n");
+    status = queue_append((queue_t **) queue, (queue_t *) curr_task);
+    if (status < 0) {
+        fprintf(stderr, "Error: task_suspend - queue append failed.\n");
         return;
     }
+
+    #if DEBUG
+    queue_print("READY", (queue_t *) ready_queue, print_elem);
+    queue_print("SUSPENDED", (queue_t *) sleep_queue, print_elem);
+    #endif
+
     task_switch(&dispatcher_task);
 }
 
@@ -431,15 +470,20 @@ void task_awake (task_t *task, task_t **queue) {
     printf("PPOS: task_awake - awaking task %d.\n", task->id);
     #endif
 
+    int status;
+
     // remove tarefa da fila informada
-    queue_remove((queue_t **) queue, (queue_t *) task);
+    status = queue_remove((queue_t **) queue, (queue_t *) task);
+    if (status < 0) {
+        fprintf(stderr, "PPOS: task_awake - queue remove failed.\n");
+    }
 
     task->status = PPOS_STATUS_READY;
 
     // insere tarefa na fila de prontas
-    int ret = queue_append((queue_t **) &ready_queue, (queue_t *) task);
-    if (ret < 0) {
-        fprintf(stderr, "Error: task_suspend - queue append.\n");
+    status = queue_append((queue_t **) &ready_queue, (queue_t *) task);
+    if (status < 0) {
+        fprintf(stderr, "Error: task_awake - queue append failed.\n");
         return;
     }
     task_switch(curr_task);
@@ -452,6 +496,7 @@ void task_yield () {
     #ifdef DEBUG
     printf("PPOS: task_yeld - task %d yields the CPU.\n", curr_task->id);
     #endif
+    
     curr_task->status = PPOS_STATUS_READY;
     dispatcher_task.status = PPOS_STATUS_RUNNING;
     task_switch(&dispatcher_task);
@@ -488,7 +533,14 @@ unsigned int systime () {
 
 // suspende a tarefa corrente por t milissegundos
 void task_sleep (int t) {
-    return;
+    curr_task->awake_time = systime() + t;
+
+    #if DEBUG
+    printf("PPOS: task_sleep - task %d sleeping for %dms (awake at %d).\n",
+            curr_task->id, t, curr_task->awake_time);
+    #endif
+
+    task_suspend(&sleep_queue);
 }
 
 // operações de sincronização ==================================================
@@ -504,7 +556,7 @@ int task_wait (task_t *task) {
         return PPOS_ERROR_WAIT_INVALID_TASK;
     }
     // suspender a tarefa atual e coloca na fila de espera da tarefa task
-    task_suspend(&(task->waiting_tasks));
+    task_suspend(&(task->wait_queue));
 
     return task->exit_code;
 }
