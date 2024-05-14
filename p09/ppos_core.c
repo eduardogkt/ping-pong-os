@@ -123,20 +123,18 @@ void check_sleeping_tasks() {
     }
 
     int curr_time = systime();
-    queue_print("suspended", (queue_t *) sleep_queue, print_elem);
 
-    task_t *aux = sleep_queue;
-    do {
+    task_t *aux = sleep_queue->next;
+    while (aux != sleep_queue) {
         task_t *task = aux;
         aux = aux->next;
-
-        printf("%d ", task->id);
-        
         if (task->awake_time <= curr_time) {
             task_awake(task, &sleep_queue);
         }
-    } while (aux != sleep_queue);
-    printf("\n");
+    }
+    if (aux->awake_time == curr_time) {
+        task_awake(aux, &sleep_queue);
+    }
 }
 
 // trata a tarefa de acordo com seu estado
