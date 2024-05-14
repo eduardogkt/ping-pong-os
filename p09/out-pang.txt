@@ -1,0 +1,44 @@
+    0 ms: main: espera Pang...
+    0 ms:     Pang: inicio
+    0 ms:     Pang vai dormir 100 ms
+  100 ms:     Pang dormiu     100 ms (ok)
+  100 ms:     Pang vai dormir 1000 ms
+ 1100 ms:     Pang dormiu     1000 ms (ok)
+ 1100 ms:     Pang vai dormir 1000 ms
+ 2100 ms:     Pang dormiu     1000 ms (ok)
+ 2100 ms:     Pang vai dormir 2000 ms
+ 4100 ms:     Pang dormiu     2000 ms (ok)
+ 4100 ms:     Pang vai dormir 1400 ms
+ 5500 ms:     Pang dormiu     1400 ms (ok)
+ 5500 ms:     Pang vai dormir 1900 ms
+ 7400 ms:     Pang dormiu     1900 ms (ok)
+ 7400 ms:     Pang vai dormir 1500 ms
+ 8900 ms:     Pang dormiu     1500 ms (ok)
+ 8900 ms:     Pang vai dormir 1000 ms
+ 9900 ms:     Pang dormiu     1000 ms (ok)
+ 9900 ms:     Pang vai dormir 1700 ms
+11600 ms:     Pang dormiu     1700 ms (ok)
+11600 ms:     Pang vai dormir 1100 ms
+12700 ms:     Pang dormiu     1100 ms (ok)
+12700 ms:     Pang vai dormir 1100 ms
+13800 ms:     Pang dormiu     1100 ms (ok)
+13800 ms:     Pang vai dormir 1000 ms
+14800 ms:     Pang dormiu     1000 ms (ok)
+14800 ms:     Pang vai dormir 300 ms
+15100 ms:     Pang dormiu     300 ms (ok)
+15100 ms:     Pang vai dormir 300 ms
+15400 ms:     Pang dormiu     300 ms (ok)
+15400 ms:     Pang vai dormir 900 ms
+16300 ms:     Pang dormiu     900 ms (ok)
+16300 ms:     Pang vai dormir 1400 ms
+17700 ms:     Pang dormiu     1400 ms (ok)
+17700 ms:     Pang vai dormir 0 ms
+17700 ms:     Pang dormiu     0 ms (ok)
+17700 ms:     Pang vai dormir 200 ms
+17900 ms:     Pang dormiu     200 ms (ok)
+17900 ms:     Pang vai dormir 800 ms
+18700 ms:     Pang dormiu     800 ms (ok)
+18700 ms:     Pang vai dormir 0 ms
+18700 ms:     Pang dormiu     0 ms (ok)
+18700 ms:     Pang: fim
+18700 ms: main: Pang acabou

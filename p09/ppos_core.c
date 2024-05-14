@@ -122,12 +122,13 @@ void check_sleeping_tasks() {
         return;
     }
 
-    int curr_time = systime();
+    unsigned int curr_time = systime();
 
     task_t *aux = sleep_queue->next;
     while (aux != sleep_queue) {
         task_t *task = aux;
         aux = aux->next;
+
         if (task->awake_time <= curr_time) {
             task_awake(task, &sleep_queue);
         }
@@ -140,19 +141,20 @@ void check_sleeping_tasks() {
 // trata a tarefa de acordo com seu estado
 void status_handler(task_t *task) {
     switch (task->status) {
-        case PPOS_STATUS_NEW: break;
         case PPOS_STATUS_READY: 
             // tarefa não acabou e precisa ser recolocada na fila de prontos
             queue_append((queue_t **) &ready_queue, (queue_t *) task);
             break;
-            
-        case PPOS_STATUS_RUNNING: break;
-        case PPOS_STATUS_SUSPENDED: break;
         case PPOS_STATUS_TERMINATED: 
+            // remove a tarefa da fila de prontos apenas ao final 
             queue_remove((queue_t **) &ready_queue, (queue_t *) task);
+
             // libera a pilha da tarefa
             free(task->context.uc_stack.ss_sp);
             break;
+        case PPOS_STATUS_NEW: break;
+        case PPOS_STATUS_RUNNING: break;
+        case PPOS_STATUS_SUSPENDED: break;
     }
 }
 
@@ -168,41 +170,36 @@ void dispatcher() {
     
     // enquanto houverem tarefas do usuário
     while (user_tasks_count > 0) {
-        time_start = systime();
-
-        // verifica as tarefas que precisam ser acordadas
-        check_sleeping_tasks();
+        START_PROCESSOR_TIME_COUNT // dispatcher_task
 
         // escolhe a próxima tarefa a executar
         task_t *next_task = scheduler();
 
-        if (next_task == NULL) {
-            continue;
-            exit(1);
-        }
+        if (next_task != NULL) {
             
-        next_task->status = PPOS_STATUS_RUNNING;
-        next_task->activations++;
+            next_task->status = PPOS_STATUS_RUNNING;
+            next_task->activations++;
 
-        time_end = systime();
-        dispatcher_task.processor_time += (time_end - time_start);
+            END_PROCESSOR_TIME_COUNT((&dispatcher_task))
 
-        time_start = systime();
+            START_PROCESSOR_TIME_COUNT // next_task
+            
+            // transfere controle para a próxima tarefa
+            task_switch(next_task);
+
+            END_PROCESSOR_TIME_COUNT(next_task)
+
+            START_PROCESSOR_TIME_COUNT  // dispatcher_task
+            dispatcher_task.activations++;
+
+            // trata a tarefa de acordo com seu estado
+            status_handler(next_task);
+        }
+
+        // verifica as tarefas que precisam ser acordadas
+        check_sleeping_tasks();
         
-        // transfere controle para a próxima tarefa
-        task_switch(next_task);
-
-        time_end = systime();
-        next_task->processor_time += (time_end - time_start);
-
-        time_start = systime();
-        dispatcher_task.activations++;
-
-        // trata a tarefa de acordo com seu estado
-        status_handler(next_task);
-        
-        time_end = systime();
-        dispatcher_task.processor_time += (time_end - time_start);
+        END_PROCESSOR_TIME_COUNT((&dispatcher_task))
     }  // end while
 
     // encerra a tarefa dispatcher
@@ -483,6 +480,12 @@ void task_awake (task_t *task, task_t **queue) {
         fprintf(stderr, "Error: task_awake - queue append failed.\n");
         return;
     }
+
+    #if DEBUG
+    queue_print("READY", (queue_t *) ready_queue, print_elem);
+    queue_print("SUSPENDED", (queue_t *) sleep_queue, print_elem);
+    #endif
+    
     task_switch(curr_task);
 }
 

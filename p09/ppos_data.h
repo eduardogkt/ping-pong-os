@@ -9,6 +9,20 @@
 
 #include <ucontext.h>		// biblioteca POSIX de trocas de contexto
 
+// macros para contagem de tempo de processador
+// obtem o tempo atual e armazena em timer
+#define GET_CURR_TIME(timer) \
+    timer = systime();
+
+// obtem o tempo inicial de uso
+#define START_PROCESSOR_TIME_COUNT  \
+    GET_CURR_TIME(time_start)
+
+// obtem o tempo final de uso de processador e calcula o tempo de processador
+#define END_PROCESSOR_TIME_COUNT(task) \
+    GET_CURR_TIME(time_end) \
+    task->processor_time += (time_end - time_start);
+
 // status de tarefa
 #define PPOS_STATUS_NEW 0
 #define PPOS_STATUS_READY 1
