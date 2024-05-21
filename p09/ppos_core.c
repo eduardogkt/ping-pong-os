@@ -133,7 +133,7 @@ void check_sleeping_tasks() {
             task_awake(task, &sleep_queue);
         }
     }
-    if (aux->awake_time == curr_time) {
+    if (aux->awake_time <= curr_time) {
         task_awake(aux, &sleep_queue);
     }
 }
