@@ -172,7 +172,9 @@ void dispatcher() {
     queue_remove((queue_t **) &ready_queue, (queue_t *) &dispatcher_task);
     
     // enquanto houverem tarefas do usuário
-    while (user_tasks_count > 0) {
+    while (user_tasks_count > 0 ||
+           queue_size((queue_t *) sleep_queue) > 0) {
+        
         START_PROCESSOR_TIME_COUNT // dispatcher_task
 
         // escolhe a próxima tarefa a executar
