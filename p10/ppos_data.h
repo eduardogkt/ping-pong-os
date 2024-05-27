@@ -80,7 +80,7 @@ struct task_t
   unsigned int processor_time;  // tempo de processsamento da tarefa
   unsigned int activations;     // numero de ativações da tarefa
 
-  task_t *wait_queue;           // tarefas suspensas esperando a tarefa terminar
+  struct task_t *wait_queue;    // tarefas suspensas esperando a tarefa terminar
   int exit_code;                // código de saida da tarefa
 
   unsigned int awake_time;      // horario para acordar a terafa quando suspensa

@@ -48,6 +48,10 @@ void set_task(task_t *task, short type, short prio, short status) {
     task->quantum = PPOS_QUANTUM;
     task->activations = 0;
     task->init_time = systime();
+    task->processor_time = 0;
+    task->execution_time = 0;
+    task->exit_code = 0;
+    task->wait_queue = NULL;
 }
 
 // retorna a tarefa com maior prioridade da fila de prontos
