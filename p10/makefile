@@ -1,16 +1,12 @@
 CC      = gcc
 C_FLAGS = -Wall -g
-EXE     = pingpong-semaphore
+EXE     = pingpong-sleep
 DP      = ppos_core.c queue.c
 
 all: $(EXE)
 
 debug: C_FLAGS += -DDEBUG
 debug: all
-
-race: purge
-race: EXE = pingpong-racecond
-race: all
 
 $(EXE): $(EXE).c $(DP)
 	$(CC) $(C_FLAGS) $(DP) $(EXE).c -o $(EXE)

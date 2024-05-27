@@ -8,6 +8,7 @@
 #define __PPOS_DATA__
 
 #include <ucontext.h>		// biblioteca POSIX de trocas de contexto
+#include "queue.h"      // bilbioteca de fila para semaforo
 
 // macros para contagem de tempo de processador
 // obtem o tempo atual e armazena em timer
@@ -88,7 +89,9 @@ struct task_t
 // estrutura que define um semáforo
 typedef struct
 {
-  // preencher quando necessário
+  int lock;
+  int count;
+  queue_t *queue;
 } semaphore_t ;
 
 // estrutura que define um mutex

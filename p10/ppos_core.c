@@ -143,12 +143,15 @@ void status_handler(task_t *task) {
     switch (task->status) {
         case PPOS_STATUS_READY: 
             // tarefa não acabou e precisa ser recolocada na fila de prontos
-            queue_append((queue_t **) &ready_queue, (queue_t *) task);
+            if (queue_append((queue_t **) &ready_queue, (queue_t *) task) < 0) {
+                fprintf(stderr, "Error: dispatcher - queue append failed.\n");
+            }
             break;
         case PPOS_STATUS_TERMINATED: 
             // remove a tarefa da fila de prontos apenas ao final 
-            queue_remove((queue_t **) &ready_queue, (queue_t *) task);
-
+            if (queue_remove((queue_t **) &ready_queue, (queue_t *) task) < 0) {
+                fprintf(stderr, "Error: dispatcher - queue append failed.\n");
+            }
             // libera a pilha da tarefa
             free(task->context.uc_stack.ss_sp);
             break;
@@ -267,19 +270,25 @@ void display_time_infos() {
     // printf("activations %d.\n", curr_task->activations);
 }
 
-// acorda as tarefas esperando na fila de tarefas suspensas
-void awake_waiting_tasks(task_t *task) {
-    if (task == NULL) {
-        return;
-    }
+// acorda todas as tarefas da fila
+void awake_all_tasks(task_t *queue) {
+    task_t *aux = queue;
 
-    task_t *wait_queue = curr_task->wait_queue;
-    task_t *aux = wait_queue;
-    
     while (aux != NULL) {
-        task_awake(aux, &(wait_queue));
-        aux = wait_queue;
+        task_awake(aux, &queue);
+        aux = queue;
     }
+}
+
+// entra na seção critica
+void enter_cs(int *lock) {
+    // atomic OR (Intel macro for GCC)
+    while (__sync_fetch_and_or(lock, 1));
+}
+ 
+// sai da seção critica
+void leave_cs(int *lock) {
+    (*lock) = 0;
 }
 
 // funções gerais ==============================================================
@@ -387,7 +396,7 @@ void task_exit (int exit_code) {
     curr_task->exit_code = exit_code;
 
     // acordando as tarefas que estão esperando na fila da tarefa corrente
-    awake_waiting_tasks(curr_task);
+    awake_all_tasks(curr_task->wait_queue);
 
     task_switch(&dispatcher_task);
 }
@@ -483,10 +492,9 @@ void task_awake (task_t *task, task_t **queue) {
 
     #if DEBUG
     queue_print("READY", (queue_t *) ready_queue, print_elem);
-    queue_print("SUSPENDED", (queue_t *) sleep_queue, print_elem);
+    queue_print("SLEEP", (queue_t *) sleep_queue, print_elem);
+    queue_print("QUEUE", (queue_t *) *queue, print_elem);
     #endif
-    
-    task_switch(curr_task);
 }
 
 // operações de escalonamento ==================================================
@@ -559,6 +567,26 @@ int task_wait (task_t *task) {
     task_suspend(&(task->wait_queue));
 
     return task->exit_code;
+}
+
+// inicializa um semáforo com valor inicial "value"
+int sem_init (semaphore_t *s, int value) {
+    return 0;
+}
+
+// requisita o semáforo
+int sem_down (semaphore_t *s) {
+    return 0;
+}
+
+// libera o semáforo
+int sem_up (semaphore_t *s) {
+    return 0;
+}
+
+// "destroi" o semáforo, liberando as tarefas bloqueadas
+int sem_destroy (semaphore_t *s) {
+    return 0;
 }
 
 //==============================================================================
