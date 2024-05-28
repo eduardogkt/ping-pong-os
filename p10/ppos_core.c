@@ -129,7 +129,7 @@ void check_sleeping_tasks() {
     unsigned int curr_time = systime();
 
     task_t *aux = sleep_queue->next;
-    while (aux != sleep_queue) {
+    while (sleep_queue && (aux != sleep_queue)) {
         task_t *task = aux;
         aux = aux->next;
 
@@ -148,13 +148,13 @@ void status_handler(task_t *task) {
         case PPOS_STATUS_READY: 
             // tarefa não acabou e precisa ser recolocada na fila de prontos
             if (queue_append((queue_t **) &ready_queue, (queue_t *) task) < 0) {
-                fprintf(stderr, "Error: dispatcher - queue append failed.\n");
+                fprintf(stdout, "Error: dispatcher - ready queue append failed.\n");
             }
             break;
         case PPOS_STATUS_TERMINATED: 
             // remove a tarefa da fila de prontos apenas ao final 
             if (queue_remove((queue_t **) &ready_queue, (queue_t *) task) < 0) {
-                fprintf(stderr, "Error: dispatcher - queue append failed.\n");
+                fprintf(stderr, "Error: dispatcher - queue remove failed.\n");
             }
             // libera a pilha da tarefa
             free(task->context.uc_stack.ss_sp);
@@ -436,6 +436,7 @@ int task_switch (task_t *task) {
 // transferindo-a da fila de prontas para a fila "queue"
 void task_suspend (task_t **queue) {
     if (queue == NULL) {
+        fprintf(stderr, "Error: task_suspend - null queue.\n");
         return;
     }
     
@@ -462,7 +463,8 @@ void task_suspend (task_t **queue) {
 
     #if DEBUG
     queue_print("READY", (queue_t *) ready_queue, print_elem);
-    queue_print("SUSPENDED", (queue_t *) sleep_queue, print_elem);
+    queue_print("SLEEP", (queue_t *) sleep_queue, print_elem);
+    queue_print("QUEUE", (queue_t *) *queue, print_elem);
     #endif
 
     task_switch(&dispatcher_task);
@@ -472,6 +474,7 @@ void task_suspend (task_t **queue) {
 // trasferindo-a da fila "queue" para a fila de prontas
 void task_awake (task_t *task, task_t **queue) {
     if (queue == NULL) {
+        fprintf(stderr, "Error: task_awake - null queue.\n");
         return;
     }
 
@@ -577,21 +580,79 @@ int task_wait (task_t *task) {
 
 // inicializa um semáforo com valor inicial "value"
 int sem_init (semaphore_t *s, int value) {
+    if (s == NULL) {
+        return PPOS_ERROR_SEMAPHORE;
+    }
+
+    if (queue_size((queue_t *) s->queue) != 0) {
+        return PPOS_ERROR_SEMAPHORE;
+    }
+
+    #ifdef DEBUG
+    printf("PPOS: sem_init - semaphore initialized with %d.\n", value);
+    #endif
+
+    s->lock = 0;
+    s->count = value;
+    s->queue = NULL;
     return 0;
 }
 
 // requisita o semáforo
 int sem_down (semaphore_t *s) {
+    if (s == NULL) {
+        return PPOS_ERROR_SEMAPHORE;
+    }
+
+    #ifdef DEBUG
+    printf("PPOS: sem_down - task %d.\n", curr_task->id);
+    #endif
+
+    enter_cs(&(s->lock));
+    s->count--;
+    if (s->count < 0) {
+        leave_cs(&(s->lock));
+        task_suspend(&(s->queue));
+    }
+    leave_cs(&(s->lock));
+
     return 0;
 }
 
 // libera o semáforo
 int sem_up (semaphore_t *s) {
+    if (s == NULL) {
+        return PPOS_ERROR_SEMAPHORE;
+    }
+
+    #ifdef DEBUG
+    printf("PPOS: sem_up - task %d.\n", curr_task->id);
+    #endif
+
+    enter_cs(&(s->lock));
+    s->count++;
+    if (s->count <= 0) {
+        task_t *first = s->queue;
+        task_awake(first, &(s->queue));
+    }
+    leave_cs(&(s->lock));
+
     return 0;
 }
 
 // "destroi" o semáforo, liberando as tarefas bloqueadas
 int sem_destroy (semaphore_t *s) {
+    if (s == NULL) {
+        return PPOS_ERROR_SEMAPHORE;
+    }
+
+    #ifdef DEBUG
+    printf("PPOS: sem_destroy - task %d.\n", curr_task->id);
+    #endif
+
+    awake_all_tasks(s->queue);
+    s = NULL;
+
     return 0;
 }
 

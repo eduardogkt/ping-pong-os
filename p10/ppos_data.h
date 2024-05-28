@@ -8,7 +8,6 @@
 #define __PPOS_DATA__
 
 #include <ucontext.h>		// biblioteca POSIX de trocas de contexto
-#include "queue.h"      // bilbioteca de fila para semaforo
 
 // macros para contagem de tempo de processador
 // obtem o tempo atual e armazena em timer
@@ -60,12 +59,11 @@
 // erros task_wait
 #define PPOS_ERROR_WAIT_INVALID_TASK -1
 
+// erros semaforo
 #define PPOS_ERROR_SEMAPHORE -1
 
 // Estrutura que define um Task Control Block (TCB)
-typedef struct task_t task_t;
-struct task_t
-{
+typedef struct task_t {
   struct task_t *prev, *next;   // ponteiros para usar em filas
   int id;                       // identificador da tarefa
   ucontext_t context;           // contexto armazenado da tarefa
@@ -84,15 +82,14 @@ struct task_t
   int exit_code;                // código de saida da tarefa
 
   unsigned int awake_time;      // horario para acordar a terafa quando suspensa
-};
+} task_t;
 
 // estrutura que define um semáforo
-typedef struct
-{
+typedef struct semaphore_t {
   int lock;
   int count;
-  queue_t *queue;
-} semaphore_t ;
+  task_t *queue;
+} semaphore_t;
 
 // estrutura que define um mutex
 typedef struct

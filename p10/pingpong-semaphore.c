@@ -15,7 +15,7 @@ semaphore_t s1, s2 ;
 void TaskA (void * arg)
 {
    int i ;
-   for (i=0; i<10; i++)
+   for (i=0; i<4; i++)
    {
       sem_down (&s1) ;
       printf ("%s zig (%d)\n", (char *) arg, i) ;
@@ -29,7 +29,7 @@ void TaskA (void * arg)
 void TaskB (void * arg)
 {
    int i ;
-   for (i=0; i<10; i++)
+   for (i=0; i<4; i++)
    {
       sem_down (&s2) ;
       printf ("%s zag (%d)\n", (char *) arg, i) ;
