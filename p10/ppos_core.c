@@ -169,32 +169,19 @@ void status_handler(task_t *task) {
 
 // implementação da tarefa dispatcher
 void dispatcher() {
-    // vars para medir o tempo de processador do dispatcher e das tarefas
-    int time_start, time_end;
-
     // retira o dispatcher da fila de prontas, para evitar que ative a si mesmo
     queue_remove((queue_t **) &ready_queue, (queue_t *) &dispatcher_task);
     
     // enquanto houverem tarefas do usuário
     while (user_tasks_count > 0 || queue_size((queue_t *) sleep_queue) > 0) {
         
-        START_PROCESSOR_TIME_COUNT // dispatcher_task
-
         // escolhe a próxima tarefa a executar
         task_t *next_task = scheduler();
 
         if (next_task != NULL) {
             
-            END_PROCESSOR_TIME_COUNT((&dispatcher_task))
-
-            START_PROCESSOR_TIME_COUNT // next_task
-            
             // transfere controle para a próxima tarefa
             task_switch(next_task);
-
-            END_PROCESSOR_TIME_COUNT(next_task)
-
-            START_PROCESSOR_TIME_COUNT  // dispatcher_task
 
             // trata a tarefa de acordo com seu estado
             status_handler(next_task);
@@ -202,9 +189,7 @@ void dispatcher() {
 
         // verifica as tarefas que precisam ser acordadas
         check_sleeping_tasks();
-        
-        END_PROCESSOR_TIME_COUNT((&dispatcher_task))
-    }  // end while
+    }
 
     // encerra a tarefa dispatcher
     task_exit(0);
@@ -213,6 +198,7 @@ void dispatcher() {
 // tratador de interrupção de tick
 void tick_handler() {
     clock++;
+    curr_task->processor_time++;
 
     if (curr_task->type == PPOS_USER_TASK) {
         curr_task->quantum--;
