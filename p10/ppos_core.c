@@ -82,7 +82,7 @@ task_t *get_next_task() {
         aux = aux->next;
     } while (aux != ready_queue);
 
-    // #ifdef DEBUG
+    // #if DEBUG
     // printf("PPOS: sheduler - highest prio: %d\n", chosen_task->prio_d);
     // printf("PPOS: sheduler - chosen task: %d\n", chosen_task->id);
     // #endif
@@ -128,14 +128,16 @@ void check_sleeping_tasks() {
 
     unsigned int curr_time = systime();
 
-    task_t *aux = sleep_queue->next;
-    while (sleep_queue && (aux != sleep_queue)) {
-        task_t *task = aux;
-        aux = aux->next;
+    task_t *aux = sleep_queue;
+    task_t *next = aux->next;
 
-        if (task->awake_time <= curr_time) {
-            task_awake(task, &sleep_queue);
+    while (sleep_queue && (next != sleep_queue)) {
+        next = aux->next;
+
+        if (aux->awake_time <= curr_time) {
+            task_awake(aux, &sleep_queue);
         }
+        aux = next;
     }
     if (aux->awake_time <= curr_time) {
         task_awake(aux, &sleep_queue);
@@ -170,14 +172,11 @@ void dispatcher() {
     // vars para medir o tempo de processador do dispatcher e das tarefas
     int time_start, time_end;
 
-    dispatcher_task.activations++;
-
     // retira o dispatcher da fila de prontas, para evitar que ative a si mesmo
     queue_remove((queue_t **) &ready_queue, (queue_t *) &dispatcher_task);
     
     // enquanto houverem tarefas do usuário
-    while (user_tasks_count > 0 ||
-           queue_size((queue_t *) sleep_queue) > 0) {
+    while (user_tasks_count > 0 || queue_size((queue_t *) sleep_queue) > 0) {
         
         START_PROCESSOR_TIME_COUNT // dispatcher_task
 
@@ -186,9 +185,6 @@ void dispatcher() {
 
         if (next_task != NULL) {
             
-            next_task->status = PPOS_STATUS_RUNNING;
-            next_task->activations++;
-
             END_PROCESSOR_TIME_COUNT((&dispatcher_task))
 
             START_PROCESSOR_TIME_COUNT // next_task
@@ -199,7 +195,6 @@ void dispatcher() {
             END_PROCESSOR_TIME_COUNT(next_task)
 
             START_PROCESSOR_TIME_COUNT  // dispatcher_task
-            dispatcher_task.activations++;
 
             // trata a tarefa de acordo com seu estado
             status_handler(next_task);
@@ -225,7 +220,6 @@ void tick_handler() {
             // retorna para o dispatcher e recoloca a tarefa na fila de prontas
             curr_task->quantum = PPOS_QUANTUM;
             curr_task->status = PPOS_STATUS_READY;
-            dispatcher_task.status = PPOS_STATUS_RUNNING;
             task_switch(&dispatcher_task);
         }
     }
@@ -320,7 +314,7 @@ void ppos_init () {
     tick_handler_init();
     timer_init();
 
-    #ifdef DEBUG
+    #if DEBUG
     printf("PPOS: ppos_init\n");
     printf("  main task %d (%p)\n", main_task.id, &main_task);
     printf("  curr task %d (%p)\n", curr_task->id, curr_task);
@@ -372,7 +366,7 @@ int task_init (task_t *task, void (*start_func)(void *), void *arg) {
     // contador de tarefas de usuário para o dispatcher
     user_tasks_count++;
     
-    #ifdef DEBUG
+    #if DEBUG
     printf("PPOS: task_init - task %d initialized\n", task->id);
     queue_print("READY: ", (queue_t *) ready_queue, print_elem);
     #endif
@@ -410,17 +404,20 @@ void task_exit (int exit_code) {
 // alterna a execução para a tarefa indicada
 int task_switch (task_t *task) {
     if (task == NULL) {
-        fprintf(stderr, "Error: task switck - null task.\n");
+        fprintf(stderr, "Error: task switch - null task.\n");
         return PPOS_ERROR_SWITCH_NULL_TASK;
     }
 
-    // #ifdef DEBUG
+    // #if DEBUG
     // printf("PPOS: task_switch - task %d -> task %d\n", 
     //         curr_task->id, task->id);
     // #endif
 
     task_t *src = curr_task;
     task_t *dest = task;
+
+    dest->status = PPOS_STATUS_RUNNING;
+    dest->activations++;
     
     // tarefa destino se torna a tarefa corrente
     curr_task = dest;
@@ -510,12 +507,11 @@ void task_awake (task_t *task, task_t **queue) {
 
 // a tarefa atual libera o processador para outra tarefa
 void task_yield () {
-    #ifdef DEBUG
+    #if DEBUG
     printf("PPOS: task_yeld - task %d yields the CPU.\n", curr_task->id);
     #endif
     
     curr_task->status = PPOS_STATUS_READY;
-    dispatcher_task.status = PPOS_STATUS_RUNNING;
     task_switch(&dispatcher_task);
 }
 
@@ -588,7 +584,7 @@ int sem_init (semaphore_t *s, int value) {
         return PPOS_ERROR_SEMAPHORE;
     }
 
-    #ifdef DEBUG
+    #if DEBUG
     printf("PPOS: sem_init - semaphore initialized with %d.\n", value);
     #endif
 
@@ -604,7 +600,7 @@ int sem_down (semaphore_t *s) {
         return PPOS_ERROR_SEMAPHORE;
     }
 
-    #ifdef DEBUG
+    #if DEBUG
     printf("PPOS: sem_down - task %d.\n", curr_task->id);
     #endif
 
@@ -614,7 +610,9 @@ int sem_down (semaphore_t *s) {
         leave_cs(&(s->lock));
         task_suspend(&(s->queue));
     }
-    leave_cs(&(s->lock));
+    else {
+        leave_cs(&(s->lock));
+    }
 
     return 0;
 }
@@ -625,15 +623,14 @@ int sem_up (semaphore_t *s) {
         return PPOS_ERROR_SEMAPHORE;
     }
 
-    #ifdef DEBUG
+    #if DEBUG
     printf("PPOS: sem_up - task %d.\n", curr_task->id);
     #endif
 
     enter_cs(&(s->lock));
     s->count++;
     if (s->count <= 0) {
-        task_t *first = s->queue;
-        task_awake(first, &(s->queue));
+        task_awake(s->queue, &(s->queue));
     }
     leave_cs(&(s->lock));
 
@@ -646,7 +643,7 @@ int sem_destroy (semaphore_t *s) {
         return PPOS_ERROR_SEMAPHORE;
     }
 
-    #ifdef DEBUG
+    #if DEBUG
     printf("PPOS: sem_destroy - task %d.\n", curr_task->id);
     #endif
 
