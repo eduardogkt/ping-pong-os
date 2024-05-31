@@ -121,7 +121,7 @@ task_t *scheduler() {
 }
 
 // procura por tarefas que precisam ser acordadas na fila de tarefas dormindo
-void check_sleeping_tasks() {
+void check_sleep_queue() {
     if (sleep_queue == NULL) {
         return;
     }
@@ -131,7 +131,7 @@ void check_sleeping_tasks() {
     task_t *aux = sleep_queue;
     task_t *next = aux->next;
 
-    while (sleep_queue && (next != sleep_queue)) {
+    while ((sleep_queue != NULL) && (next != sleep_queue)) {
         next = aux->next;
 
         if (aux->awake_time <= curr_time) {
@@ -148,10 +148,13 @@ void check_sleeping_tasks() {
 void status_handler(task_t *task) {
     switch (task->status) {
         case PPOS_STATUS_READY: 
-            // tarefa não acabou e precisa ser recolocada na fila de prontos
-            if (queue_append((queue_t **) &ready_queue, (queue_t *) task) < 0) {
-                fprintf(stdout, "Error: dispatcher - ready queue append failed.\n");
-            }
+            // if (queue_remove((queue_t **) &ready_queue, (queue_t *) task) < 0) {
+            //     fprintf(stderr, "Error: dispatcher - queue remove failed.\n");
+            // }
+            // // tarefa não acabou e precisa ser recolocada na fila de prontos
+            // if (queue_append((queue_t **) &ready_queue, (queue_t *) task) < 0) {
+            //     fprintf(stderr, "Error: dispatcher - ready queue append failed.\n");
+            // }
             break;
         case PPOS_STATUS_TERMINATED: 
             // remove a tarefa da fila de prontos apenas ao final 
@@ -179,6 +182,10 @@ void dispatcher() {
         task_t *next_task = scheduler();
 
         if (next_task != NULL) {
+            // queue_print("SLEEP", (queue_t *) sleep_queue, print_elem);
+            // queue_print("READY", (queue_t *) ready_queue, print_elem);
+            // queue_print("SEMAP", (queue_t *) sema->queue, print_elem);
+            // (next_task) ? printf("next_task %d.\n", next_task->id) : printf("next_task null.\n");
             
             // transfere controle para a próxima tarefa
             task_switch(next_task);
@@ -188,7 +195,7 @@ void dispatcher() {
         }
 
         // verifica as tarefas que precisam ser acordadas
-        check_sleeping_tasks();
+        check_sleep_queue();
     }
 
     // encerra a tarefa dispatcher
@@ -432,7 +439,9 @@ void task_suspend (task_t **queue) {
     // remove tarefa atual da fila de prontas
     status = queue_remove((queue_t **) &ready_queue, (queue_t *) curr_task);
     if (status < 0) {
-        fprintf(stderr, "PPOS: task_suspend - queue remove failed.\n");
+        fprintf(stderr, 
+                "PPOS: task_suspend - task %d queue remove failed.\n", 
+                curr_task->id);
     }
 
     curr_task->status = PPOS_STATUS_SUSPENDED;
@@ -440,8 +449,9 @@ void task_suspend (task_t **queue) {
     // insere tarefa atual na fila informada
     status = queue_append((queue_t **) queue, (queue_t *) curr_task);
     if (status < 0) {
-        fprintf(stderr, "Error: task_suspend - queue append failed.\n");
-        return;
+        fprintf(stderr, 
+                "PPOS: task_suspend - task %d queue append failed.\n", 
+                curr_task->id);
     }
 
     #if DEBUG
@@ -470,7 +480,9 @@ void task_awake (task_t *task, task_t **queue) {
     // remove tarefa da fila informada
     status = queue_remove((queue_t **) queue, (queue_t *) task);
     if (status < 0) {
-        fprintf(stderr, "PPOS: task_awake - queue remove failed.\n");
+        fprintf(stderr, 
+                "PPOS: task_awake - task %d queue remove failed.\n", 
+                task->id);
     }
 
     task->status = PPOS_STATUS_READY;
@@ -478,8 +490,9 @@ void task_awake (task_t *task, task_t **queue) {
     // insere tarefa na fila de prontas
     status = queue_append((queue_t **) &ready_queue, (queue_t *) task);
     if (status < 0) {
-        fprintf(stderr, "Error: task_awake - queue append failed.\n");
-        return;
+        fprintf(stderr, 
+                "PPOS: task_awake - task %d queue append failed.\n", 
+                task->id);
     }
 
     #if DEBUG
@@ -633,7 +646,9 @@ int sem_destroy (semaphore_t *s) {
     printf("PPOS: sem_destroy - task %d.\n", curr_task->id);
     #endif
 
-    awake_all_tasks(s->queue);
+    while (s->queue != NULL) {
+        sem_up(s);
+    }
     s = NULL;
 
     return 0;
