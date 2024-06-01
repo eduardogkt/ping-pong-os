@@ -129,18 +129,19 @@ void check_sleep_queue() {
     unsigned int curr_time = systime();
 
     task_t *aux = sleep_queue;
-    task_t *next = aux->next;
 
-    while ((sleep_queue != NULL) && (next != sleep_queue)) {
-        next = aux->next;
+    while (sleep_queue != NULL) {
+        task_t *next = aux->next;
 
         if (aux->awake_time <= curr_time) {
             task_awake(aux, &sleep_queue);
         }
         aux = next;
-    }
-    if (aux->awake_time <= curr_time) {
-        task_awake(aux, &sleep_queue);
+
+        // deu a volta na fila
+        if (aux == sleep_queue) {
+            break;
+        }
     }
 }
 
@@ -180,6 +181,7 @@ void dispatcher() {
         
         // escolhe a próxima tarefa a executar
         task_t *next_task = scheduler();
+        // (next_task) ? printf("next_task %d.\n", next_task->id) : printf("next_task null.\n");
 
         if (next_task != NULL) {
             // queue_print("SLEEP", (queue_t *) sleep_queue, print_elem);
