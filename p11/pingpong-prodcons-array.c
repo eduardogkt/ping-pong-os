@@ -5,14 +5,14 @@
 
 typedef struct item_t {
     struct item_t *prev, *next;
-    int value;
+    int item;
 } item_t;
 
 #define NUM_CONSUMERS 2
 #define NUM_PRODUCERS 3
 #define NUM_SLOTS 5
 
-item_t *buffer;
+int buffer[NUM_SLOTS];
 
 int num_items = 0;
 int num_slots = NUM_SLOTS;
@@ -23,42 +23,24 @@ int rand_range(int min, int max) {
     return (rand() % (max - min)) + min;
 }
 
-item_t *produce_item(long id) {
-    item_t *item = malloc(sizeof(item_t));
-    if (item == NULL) {
-        return NULL;
-    }
-    item->next = NULL;
-    item->prev = NULL;
-    item->value = rand_range(0, 99);
-
-    // printf("P%ld produziu %d\n", id, item->value);
-    return item;
-}
-
-void consume_item(long id, item_t *item) {
-    // printf("C%ld consumiu %d\n", id, item->value);
-    free(item);
-}
-
 void producer(void *arg) {
     long id = (long) arg;
 
     while (1) {
         task_sleep(1000);
 
-        item_t *item = produce_item(id);
+        int item = rand_range(0, 99);
 
         sem_down(&s_vaga);
         sem_down(&s_buff);
 
         // coloca no buffer
-        queue_append((queue_t **) &buffer, (queue_t *) item);
+        buffer[num_items] = item;
         num_items++;
         num_slots--;
 
         printf("P%ld inseriu %d (%d itens, %d vagas)\n", 
-               id, item->value, num_items, num_slots);
+               id, item, num_items, num_slots);
 
         sem_up(&s_buff);
         sem_up(&s_item);
@@ -73,18 +55,18 @@ void consumer(void *arg) {
         sem_down(&s_buff);
 
         // pega do buffer
-        item_t *first = buffer;
-        queue_remove((queue_t **) &buffer, (queue_t *) first);
+        int item = buffer[0];
         num_items--;
         num_slots++;
+        for(int i = 0; i < num_items; i++) {
+            buffer[i] = buffer[i+1];
+        }
 
         printf("\t\t\t\tC%ld retirou %d (%d itens, %d vagas)\n", 
-               id, first->value, num_items, num_slots);
+               id, item, num_items, num_slots);
 
         sem_up(&s_buff);
         sem_up(&s_vaga);
-
-        consume_item(id, first);
 
         task_sleep(1000);
     }
