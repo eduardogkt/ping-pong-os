@@ -39,7 +39,7 @@ void producer(void *arg) {
         num_items++;
         num_slots--;
 
-        printf("P%ld inseriu %d (%d itens, %d vagas)\n", 
+        printf("P%ld inseriu %d (%d itens, %d vagas)\n",
                id, item, num_items, num_slots);
 
         sem_up(&s_buff);
