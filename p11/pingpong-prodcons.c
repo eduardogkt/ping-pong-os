@@ -5,23 +5,40 @@
 
 typedef struct item_t {
     struct item_t *prev, *next;
-    int item;
+    int value;
 } item_t;
 
 #define NUM_CONSUMERS 2
 #define NUM_PRODUCERS 3
 #define NUM_SLOTS 5
 
-int buffer[NUM_SLOTS];
+item_t *buffer;
 
 int num_items = 0;
 int num_slots = NUM_SLOTS;
 
 semaphore_t s_buff, s_vaga, s_item;
 
-
 int rand_range(int min, int max) {
     return (rand() % (max - min)) + min;
+}
+
+item_t *produce_item(long id) {
+    item_t *item = malloc(sizeof(item_t));
+    if (item == NULL) {
+        return NULL;
+    }
+    item->next = NULL;
+    item->prev = NULL;
+    item->value = rand_range(0, 99);
+
+    // printf("P%ld produziu %d\n", id, item->value);
+    return item;
+}
+
+void consume_item(long id, item_t *item) {
+    // printf("C%ld consumiu %d\n", id, item->value);
+    free(item);
 }
 
 void producer(void *arg) {
@@ -30,18 +47,18 @@ void producer(void *arg) {
     while (1) {
         task_sleep(1000);
 
-        int item = rand_range(0, 99);
+        item_t *item = produce_item(id);
 
         sem_down(&s_vaga);
         sem_down(&s_buff);
 
         // coloca no buffer
-        buffer[num_items] = item;
+        queue_append((queue_t **) &buffer, (queue_t *) item);
         num_items++;
         num_slots--;
 
         printf("P%ld inseriu %d (%d itens, %d vagas)\n", 
-               id, item, num_items, num_slots);
+               id, item->value, num_items, num_slots);
 
         sem_up(&s_buff);
         sem_up(&s_item);
@@ -56,18 +73,18 @@ void consumer(void *arg) {
         sem_down(&s_buff);
 
         // pega do buffer
-        int item = buffer[0];
+        item_t *first = buffer;
+        queue_remove((queue_t **) &buffer, (queue_t *) first);
         num_items--;
         num_slots++;
-        for(int i = 0; i < num_items; i++) {
-            buffer[i] = buffer[i+1];
-        }
 
         printf("\t\t\t\tC%ld retirou %d (%d itens, %d vagas)\n", 
-               id, item, num_items, num_slots);
+               id, first->value, num_items, num_slots);
 
         sem_up(&s_buff);
         sem_up(&s_vaga);
+
+        consume_item(id, first);
 
         task_sleep(1000);
     }
