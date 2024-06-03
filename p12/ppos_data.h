@@ -89,10 +89,10 @@ typedef struct task_t {
 
 // estrutura que define um semáforo
 typedef struct semaphore_t {
-  int lock;
-  int count;
-  int exists;
-  task_t *queue;
+  int lock;              // variavel para acesso exclusivo
+  int count;             // contador do semaforo
+  int exists;            // variavel que diz se o semaforo é valido
+  struct task_t *queue;  // fila do semaforo
 } semaphore_t;
 
 // estrutura que define um mutex
@@ -107,19 +107,20 @@ typedef struct
   // preencher quando necessário
 } barrier_t ;
 
-// estrutura que define uma fila de mensagens
-typedef struct mqueue_t {
-  int max_items;   // capacidade maxima do buffer
-  int num_items;   // quantidada de itens no buffer
-  int item_size;   // tamanho dos itens do buffer
-  struct mqueue_item_t *buffer;    // buffer de itens genericos
-  struct semaphore_t s_slot, s_item, s_buff;   // semaforos de acesso ao buffer
-} mqueue_t;
-
+// estrutura de item generico para a fila de mensagens
 typedef struct mqueue_item_t {
   struct mqueue_item_t *prev, *next;
   void *item;
 } mqueue_item_t;
+
+// estrutura que define uma fila de mensagens
+typedef struct mqueue_t {
+  int max_items;  // capacidade maxima do buffer
+  int num_items;  // quantidada de itens no buffer
+  int item_size;  // tamanho dos itens do buffer
+  struct mqueue_item_t *buffer;   // buffer de itens genericos
+  struct semaphore_t s_slot, s_item, s_buff;  // semaforos de acesso ao buffer
+} mqueue_t;
 
 #endif
 

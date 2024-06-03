@@ -627,9 +627,7 @@ int sem_destroy (semaphore_t *s) {
     printf("PPOS: sem_destroy - task %d.\n", curr_task->id);
     #endif
 
-    while (s->queue != NULL) {
-        sem_up(s);
-    }
+    awake_all_tasks(s->queue);
     s->exists = 0;
 
     return 0;
