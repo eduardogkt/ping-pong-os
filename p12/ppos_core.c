@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <string.h>
 
 int task_id_count = 0;      // contador para id das tarefas
 int user_tasks_count = 0;   // contador das tarefas restantes
@@ -414,11 +415,6 @@ int task_switch (task_t *task) {
 // suspende a tarefa atual,
 // transferindo-a da fila de prontas para a fila "queue"
 void task_suspend (task_t **queue) {
-    if (queue == NULL) {
-        fprintf(stderr, "Error: task_suspend - null queue.\n");
-        return;
-    }
-    
     #if DEBUG
     printf("PPOS: task_suspend - suspending task %d.\n", curr_task->id);
     #endif
@@ -455,11 +451,6 @@ void task_suspend (task_t **queue) {
 // acorda a tarefa indicada,
 // trasferindo-a da fila "queue" para a fila de prontas
 void task_awake (task_t *task, task_t **queue) {
-    if (queue == NULL) {
-        fprintf(stderr, "Error: task_awake - null queue.\n");
-        return;
-    }
-
     #if DEBUG
     printf("PPOS: task_awake - awaking task %d.\n", task->id);
     #endif
@@ -579,12 +570,13 @@ int sem_init (semaphore_t *s, int value) {
     s->lock = 0;
     s->count = value;
     s->queue = NULL;
+    s->exists = 1;
     return 0;
 }
 
 // requisita o semáforo
 int sem_down (semaphore_t *s) {
-    if (s == NULL) {
+    if (s == NULL || !s->exists) {
         return PPOS_ERROR_SEMAPHORE;
     }
 
@@ -607,7 +599,7 @@ int sem_down (semaphore_t *s) {
 
 // libera o semáforo
 int sem_up (semaphore_t *s) {
-    if (s == NULL) {
+    if (s == NULL || !s->exists) {
         return PPOS_ERROR_SEMAPHORE;
     }
 
@@ -627,7 +619,7 @@ int sem_up (semaphore_t *s) {
 
 // "destroi" o semáforo, liberando as tarefas bloqueadas
 int sem_destroy (semaphore_t *s) {
-    if (s == NULL) {
+    if (s == NULL || !s->exists) {
         return PPOS_ERROR_SEMAPHORE;
     }
 
@@ -638,7 +630,7 @@ int sem_destroy (semaphore_t *s) {
     while (s->queue != NULL) {
         sem_up(s);
     }
-    s = NULL;
+    s->exists = 0;
 
     return 0;
 }
@@ -680,29 +672,115 @@ int barrier_destroy (barrier_t *b) {
 
 // operações de comunicação ====================================================
 
+// inicializa um item para o buffer da fila de mensagens
+mqueue_item_t *mqueue_item_create(void *msg, int item_size) {
+    mqueue_item_t *mq_item = malloc(sizeof(mqueue_item_t));
+    if (mq_item == NULL) {
+        return NULL;
+    }
+    mq_item->item = malloc(item_size);
+    if (mq_item == NULL) {
+        return NULL;
+    }
+    memcpy(mq_item->item, msg, item_size);
+    mq_item->prev = NULL;
+    mq_item->next = NULL;
+    
+    return mq_item;
+}
+
 // inicializa uma fila para até max mensagens de size bytes cada
 int mqueue_init (mqueue_t *queue, int max, int size) {
+    queue->max_items = max;
+    queue->num_items = 0;
+    queue->item_size = size;
+    queue->buffer = NULL;
+
+    if (sem_init(&(queue->s_slot), max) < 0) {
+        fprintf(stderr, "Error: mqueue_init - slot sem init failure.\n");
+        return PPOS_ERROR_MQUEUE;
+    }
+    if (sem_init(&(queue->s_item), 0) < 0) {
+        fprintf(stderr, "Error: mqueue_init - item  sem init failure.\n");
+        return PPOS_ERROR_MQUEUE;
+    }
+    if (sem_init(&(queue->s_buff), 1) < 0) {
+        fprintf(stderr, "Error: mqueue_init - buff sem init failure.\n");
+        return PPOS_ERROR_MQUEUE;
+    }
+
     return 0;
 }
 
 // envia uma mensagem para a fila
 int mqueue_send (mqueue_t *queue, void *msg) {
+    if (sem_down(&(queue->s_slot))) return PPOS_ERROR_MQUEUE;
+    if (sem_down(&(queue->s_buff))) return PPOS_ERROR_MQUEUE;
+    
+    // coloca no buffer
+    mqueue_item_t *mq_item = mqueue_item_create(msg, queue->item_size);
+    if (mq_item == NULL) {
+        fprintf(stderr, "Error: mqueue_send - item create failure.\n");
+        return PPOS_ERROR_MQUEUE;
+    }
+
+    int status = queue_append((queue_t **) &(queue->buffer), (queue_t *) mq_item);
+    if (status < 0) {
+        fprintf(stderr, 
+                "Error: msg_send - task %d queue append failed.\n",
+                task_id());
+        return PPOS_ERROR_MQUEUE;
+    }
+    queue->num_items++;
+    
+    if (sem_up(&(queue->s_buff))) return PPOS_ERROR_MQUEUE;
+    if (sem_up(&(queue->s_item))) return PPOS_ERROR_MQUEUE;
+    
     return 0;
 }
 
 // recebe uma mensagem da fila
 int mqueue_recv (mqueue_t *queue, void *msg) {
+    if (sem_down(&(queue->s_item))) return PPOS_ERROR_MQUEUE;
+    if (sem_down(&(queue->s_buff))) return PPOS_ERROR_MQUEUE;
+
+    // retira do buffer
+    mqueue_item_t *first = queue->buffer;
+    if (queue_remove((queue_t **) &(queue->buffer), (queue_t *) first) < 0) {
+        fprintf(stderr, 
+                "Error: mqueue_recv - task %d queue remove failure.\n",
+                task_id());
+        return PPOS_ERROR_MQUEUE;
+    }
+    queue->num_items--;
+
+    memcpy(msg, first->item, queue->item_size);
+    free(first->item);
+
+    if (sem_up(&(queue->s_buff))) return PPOS_ERROR_MQUEUE;
+    if (sem_up(&(queue->s_slot))) return PPOS_ERROR_MQUEUE;
+
     return 0;
 }
 
 // destroi a fila, liberando as tarefas bloqueadas
 int mqueue_destroy (mqueue_t *queue) {
+    while (queue->buffer != NULL) {
+        free(queue->buffer->item);
+        queue_remove((queue_t **) &(queue->buffer), (queue_t *) queue->buffer);
+    }
+    free(queue->buffer);
+
+    sem_destroy(&(queue->s_slot));
+    sem_destroy(&(queue->s_item));
+    sem_destroy(&(queue->s_buff));
+    
     return 0;
 }
 
 // informa o número de mensagens atualmente na fila
 int mqueue_msgs (mqueue_t *queue) {
-    return 0;
+    return queue->num_items;
 }
 
 //==============================================================================

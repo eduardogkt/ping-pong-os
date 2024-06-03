@@ -17,7 +17,7 @@ item_t *buffer;
 int num_items = 0;
 int num_slots = NUM_SLOTS;
 
-semaphore_t s_buff, s_vaga, s_item;
+semaphore_t s_buff, s_slot, s_item;
 
 int rand_range(int min, int max) {
     return (rand() % (max - min)) + min;
@@ -49,7 +49,7 @@ void producer(void *arg) {
 
         item_t *item = produce_item(id);
 
-        sem_down(&s_vaga);
+        sem_down(&s_slot);
         sem_down(&s_buff);
 
         // coloca no buffer
@@ -82,7 +82,7 @@ void consumer(void *arg) {
                id, first->value, num_items, num_slots);
 
         sem_up(&s_buff);
-        sem_up(&s_vaga);
+        sem_up(&s_slot);
 
         consume_item(id, first);
 
@@ -91,15 +91,13 @@ void consumer(void *arg) {
 }
 
 int main() {
-    printf("main: inicio\n");
-
     ppos_init();
 
     task_t producers[NUM_PRODUCERS];
     task_t consumers[NUM_CONSUMERS];
 
     // incializando os semaforos
-    sem_init(&s_vaga, NUM_SLOTS);
+    sem_init(&s_slot, NUM_SLOTS);
     sem_init(&s_item, 0);
     sem_init(&s_buff, 1);
 
@@ -124,8 +122,7 @@ int main() {
     // destruindo as semaforos
     sem_destroy(&s_buff);
     sem_destroy(&s_item);
-    sem_destroy(&s_vaga);
+    sem_destroy(&s_slot);
     
-    printf("main: fim\n");
     task_exit(0);
 }

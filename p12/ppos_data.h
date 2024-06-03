@@ -62,6 +62,9 @@
 // erros semaforo
 #define PPOS_ERROR_SEMAPHORE -1
 
+// erros filas de mensagem
+#define PPOS_ERROR_MQUEUE -1
+
 // Estrutura que define um Task Control Block (TCB)
 typedef struct task_t {
   struct task_t *prev, *next;   // ponteiros para usar em filas
@@ -88,6 +91,7 @@ typedef struct task_t {
 typedef struct semaphore_t {
   int lock;
   int count;
+  int exists;
   task_t *queue;
 } semaphore_t;
 
@@ -104,10 +108,18 @@ typedef struct
 } barrier_t ;
 
 // estrutura que define uma fila de mensagens
-typedef struct
-{
-  // preencher quando necessário
-} mqueue_t ;
+typedef struct mqueue_t {
+  int max_items;   // capacidade maxima do buffer
+  int num_items;   // quantidada de itens no buffer
+  int item_size;   // tamanho dos itens do buffer
+  struct mqueue_item_t *buffer;    // buffer de itens genericos
+  struct semaphore_t s_slot, s_item, s_buff;   // semaforos de acesso ao buffer
+} mqueue_t;
+
+typedef struct mqueue_item_t {
+  struct mqueue_item_t *prev, *next;
+  void *item;
+} mqueue_item_t;
 
 #endif
 
