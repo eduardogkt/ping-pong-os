@@ -242,14 +242,14 @@ void timer_init() {
 void display_time_infos() {
     curr_task->execution_time = systime() - curr_task->init_time;
     printf("Task %d exit: ", curr_task->id);
-    printf("execution time %d ms, ", curr_task->execution_time);
-    printf("processor time %d ms, ", curr_task->processor_time);
+    printf("execution time %5d ms, ", curr_task->execution_time);
+    printf("processor time %5d ms, ", curr_task->processor_time);
     printf("%d activations\n", curr_task->activations);
 
     // printf("PPOS: task_exit - ");
     // printf("task %d. ", curr_task->id);
-    // printf("execution time %d ms. ", curr_task->execution_time); 
-    // printf("processor time %d ms. ", curr_task->processor_time); 
+    // printf("execution time %5d ms. ", curr_task->execution_time); 
+    // printf("processor time %5d ms. ", curr_task->processor_time); 
     // printf("activations %d.\n", curr_task->activations);
 }
 
