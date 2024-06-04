@@ -715,13 +715,13 @@ int mqueue_send (mqueue_t *queue, void *msg) {
     if (sem_down(&(queue->s_slot))) return PPOS_ERROR_MQUEUE;
     if (sem_down(&(queue->s_buff))) return PPOS_ERROR_MQUEUE;
     
-    // coloca no buffer
     mqueue_item_t *mq_item = mqueue_item_create(msg, queue->item_size);
     if (mq_item == NULL) {
-        fprintf(stderr, "Error: mqueue_send - item create failure.\n");
+        fprintf(stderr, "Error: mqueue_send - item create failed.\n");
         return PPOS_ERROR_MQUEUE;
     }
 
+    // insere no buffer
     int status = queue_append((queue_t **) &(queue->buffer), (queue_t *) mq_item);
     if (status < 0) {
         fprintf(stderr, 
@@ -744,9 +744,10 @@ int mqueue_recv (mqueue_t *queue, void *msg) {
 
     // retira do buffer
     mqueue_item_t *first = queue->buffer;
-    if (queue_remove((queue_t **) &(queue->buffer), (queue_t *) first) < 0) {
+    int status = queue_remove((queue_t **) &(queue->buffer), (queue_t *) first);
+    if (status < 0) {
         fprintf(stderr, 
-                "Error: mqueue_recv - task %d queue remove failure.\n",
+                "Error: mqueue_recv - task %d queue remove failed.\n",
                 task_id());
         return PPOS_ERROR_MQUEUE;
     }
